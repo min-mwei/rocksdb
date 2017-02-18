@@ -54,6 +54,7 @@
 #include "util/thread_local.h"
 #include "util/thread_status_updater.h"
 #include "util/threadpool_imp.h"
+#include "rocksdb/utilities/env_xdb.h"
 
 #if !defined(TMPFS_MAGIC)
 #define TMPFS_MAGIC 0x01021994
@@ -930,7 +931,8 @@ Env* Env::Default() {
   // the singletons of ThreadLocalPtr.
   ThreadLocalPtr::InitSingletons();
   static PosixEnv default_env;
-  return &default_env;
+  // return &default_env;
+  return EnvXdb::Default(&default_env);
 }
 
 }  // namespace rocksdb

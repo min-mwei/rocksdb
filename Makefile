@@ -138,6 +138,11 @@ LIB_SOURCES += utilities/env_librados.cc
 LDFLAGS += -lrados
 endif
 
+LIB_SOURCES += utilities/env_xdb.cc
+CFLAGS += -I /usr/local/Cellar/openssl/1.0.2j/include -L/usr/local/lib
+CXXFLAGS += -I /usr/local/Cellar/openssl/1.0.2j/include
+LDFLAGS += -L/usr/local/lib -L/usr/local/Cellar/openssl/1.0.2j/lib -lboost_system -lssl -lcrypto -lcpprest -lazurestorage -lboost_system-mt -lboost_thread-mt -lboost_chrono
+
 AM_LINK = $(AM_V_CCLD)$(CXX) $^ $(EXEC_LDFLAGS) -o $@ $(LDFLAGS) $(COVERAGEFLAGS)
 # detect what platform we're building on
 dummy := $(shell (export ROCKSDB_ROOT="$(CURDIR)"; export PORTABLE="$(PORTABLE)"; "$(CURDIR)/build_tools/build_detect_platform" "$(CURDIR)/make_config.mk"))
@@ -1459,6 +1464,7 @@ CLEAN_FILES += jls
 
 JAVA_STATIC_FLAGS = -DZLIB -DBZIP2 -DSNAPPY -DLZ4
 JAVA_STATIC_INCLUDES = -I./zlib-$(ZLIB_VER) -I./bzip2-$(BZIP2_VER) -I./snappy-$(SNAPPY_VER) -I./lz4-$(LZ4_VER)/lib
+JAVA_STATIC_LDFLAGS = -L/usr/local/lib -L/usr/local/Cellar/openssl/1.0.2j/lib -lssl -lcrypto -lcpprest -lazurestorage -lboost_system-mt -lboost_thread-mt -lboost_chrono
 
 $(java_static_libobjects): jls/%.o: %.cc libz.a libbz2.a libsnappy.a liblz4.a
 	$(AM_V_CC)mkdir -p $(@D) && $(CXX) $(CXXFLAGS) $(JAVA_STATIC_FLAGS) $(JAVA_STATIC_INCLUDES) -fPIC -c $< -o $@ $(COVERAGEFLAGS)
