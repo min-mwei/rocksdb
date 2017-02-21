@@ -81,7 +81,6 @@ class XdbReadableFile : virtual public SequentialFile,
          it++) {
       concurrency::streams::istream blobstream =
           (const_cast<cloud_page_blob&>(_page_blob)).open_read();
-      // concurrency::streams::istream blobstream = _page_blob.open_read();
       blobstream.seek(it->start_offset(), std::ios_base::seekdir::beg);
       concurrency::streams::stringstreambuf buffer;
       blobstream.read(buffer, it->end_offset() - it->start_offset()).wait();
