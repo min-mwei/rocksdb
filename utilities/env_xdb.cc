@@ -26,7 +26,7 @@ Status err_to_status(int r) {
     case -ENOENT:
       return Status::IOError();
     case -ENODATA:
-    case -ENOTDIR:
+    case -ENOTDIR:blob
       return Status::NotFound(Status::kNone);
     case -EINVAL:
       return Status::InvalidArgument(Status::kNone);
@@ -328,7 +328,8 @@ Status EnvXdb::GetChildren(const std::string& dir,
 }
 
 void fixname(std::string& name) {
-  std::size_t pos = name.find_first_of("//");
+  std::size_t pos = name.find_first_of("////");
+  //std::size_t pos = name.find_first_of("//");
   if (pos != std::string::npos) {
     name.erase(pos, 1);
   }
@@ -338,11 +339,23 @@ int EnvXdb::WASRename(const std::string& source, const std::string& target) {
   try {
     std::string src(source);
     fixname(src);
-    std::cout << "src: " << src << " dst: " << target << std::endl;
+    std::cout << "WASRename src: " << src << " dst: " << target << std::endl;
+    cloud_page_blob src_blob;
+    try {
+      src_blob = _container.get_page_blob_reference(src);
+    } catch (const azure::storage::storage_exception& e) {
+      std::cout << "src error:" << e.what() << std::endl;
+      return -EIO;
+    }
     cloud_page_blob target_blob = _container.get_page_blob_reference(target);
     target_blob.create(64 * 1024 * 1024);
-    cloud_page_blob src_blob = _container.get_page_blob_reference(src);
-    utility::string_t copy_id = target_blob.start_copy(src_blob);
+    try {
+      utility::string_t copy_id = target_blob.start_copy(src_blob);
+    } catch (const azure::storage::storage_exception& e) {
+      std::cout << "rename copy error:" << e.what() << std::endl;
+      target_blob.delete_blob();
+      return 0;
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     target_blob.download_attributes();
     copy_state state = target_blob.copy_state();
@@ -369,20 +382,19 @@ int EnvXdb::WASRename(const std::string& source, const std::string& target) {
           break;
       }
       std::cout << "ErrorX:" << state_description << std::endl
-                << "The blob could not be copied." << std::endl;
+                << "The blob could not be renamed." << std::endl;
     }
   } catch (const azure::storage::storage_exception& e) {
     std::cout << "Error:" << e.what() << std::endl
-              << "The blob could not be copied." << std::endl;
+              << "The blob could not be renamed." << std::endl;
   }
-  return -1;
+  return -EIO;
 }
 
 Status EnvXdb::RenameFile(const std::string& src, const std::string& target) {
   std::cout << "rename from:" << src << " to:" << target << std::endl;
   if (src.find(was_store) == 0 && target.find(was_store) == 0) {
-    WASRename(src.substr(4), target.substr(4));
-    return Status::OK();
+    return err_to_status(WASRename(src.substr(4), target.substr(4)));
   }
   return EnvWrapper::RenameFile(src, target);
 }
@@ -428,6 +440,7 @@ Status EnvXdb::DeleteBlob(const std::string& f) {
 }
 
 Status EnvXdb::DeleteFile(const std::string& f) {
+  std::cout << "Delete file: " << f << std::endl;
   if (f.find(was_store) == 0) {
     return DeleteBlob(f.substr(4));
   }
@@ -443,6 +456,7 @@ Status EnvXdb::CreateDir(const std::string& d) {
 }
 
 Status EnvXdb::CreateDirIfMissing(const std::string& d) {
+  std::cout << "CreateDirIfMissing d:" << d << std::endl;
   if (d.find(was_store) == 0) {
     return Status::OK();
   }
