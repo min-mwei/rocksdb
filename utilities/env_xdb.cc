@@ -26,7 +26,7 @@ Status err_to_status(int r) {
     case -ENOENT:
       return Status::IOError();
     case -ENODATA:
-    case -ENOTDIR:blob
+  case -ENOTDIR:
       return Status::NotFound(Status::kNone);
     case -EINVAL:
       return Status::InvalidArgument(Status::kNone);
