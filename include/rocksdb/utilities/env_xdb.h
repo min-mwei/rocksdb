@@ -63,6 +63,7 @@ class EnvXdb : public EnvWrapper {
 
  private:
   int WASRename(const std::string& src, const std::string& target);
+  Status DeleteBlob(const std::string& f);
 
  private:
   azure::storage::cloud_blob_client _blob_client;

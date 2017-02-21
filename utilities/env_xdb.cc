@@ -211,11 +211,32 @@ Status EnvXdb::NewSequentialFile(const std::string& fname,
   return EnvWrapper::NewSequentialFile(fname, result, options);
 }
 
+class XdbDirectory : public Directory {
+ public:
+  explicit XdbDirectory(int fd) : fd_(fd) {}
+  ~XdbDirectory() {}
+
+  virtual Status Fsync() {
+    fd_ = 0;
+    return Status::OK();
+  }
+
+ private:
+  int fd_;
+};
+
 Status EnvXdb::NewDirectory(const std::string& name,
                             unique_ptr<Directory>* result) {
   std::cout << "new dir:" << name << std::endl;
   if (name.find(was_store) == 0) {
-    return Status::OK();
+    try {
+      cloud_page_blob page_blob =
+          _container.get_page_blob_reference(name.substr(4));
+      result->reset(new XdbDirectory(0));
+      return Status::OK();
+    } catch (const azure::storage::storage_exception& e) {
+      return Status::IOError();
+    }
   }
   return EnvWrapper::NewDirectory(name, result);
 }
@@ -368,14 +389,25 @@ Status EnvXdb::GetFileSize(const std::string& f, uint64_t* s) {
   return EnvWrapper::GetFileSize(f, s);
 }
 
+Status EnvXdb::DeleteBlob(const std::string& f) {
+  try {
+    cloud_page_blob page_blob = _container.get_page_blob_reference(f);
+    page_blob.delete_blob();
+    return Status::OK();
+  } catch (const azure::storage::storage_exception& e) {
+    return Status::IOError();
+  }
+}
+
 Status EnvXdb::DeleteFile(const std::string& f) {
   if (f.find(was_store) == 0) {
-    return Status::OK();
+    return DeleteBlob(f.substr(4));
   }
   return EnvWrapper::DeleteFile(f);
 }
 
 Status EnvXdb::CreateDir(const std::string& d) {
+  std::cout << "CreateDir d:" << d << std::endl;
   if (d.find(was_store) == 0) {
     return Status::OK();
   }
@@ -390,8 +422,9 @@ Status EnvXdb::CreateDirIfMissing(const std::string& d) {
 }
 
 Status EnvXdb::DeleteDir(const std::string& d) {
+  std::cout << "DeleteDir d:" << d << std::endl;
   if (d.find(was_store) == 0) {
-    return Status::OK();
+    return DeleteBlob(d.substr(4));
   }
   return EnvWrapper::DeleteDir(d);
 }
