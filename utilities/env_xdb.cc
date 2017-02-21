@@ -39,19 +39,37 @@ Status err_to_status(int r) {
   }
 }
 
-class XdbSequentialFile : public SequentialFile {
+class XdbReadableFile : virtual public SequentialFile,
+                        virtual public RandomAccessFile {
  public:
-  XdbSequentialFile(cloud_page_blob& page_blob)
+  XdbReadableFile(cloud_page_blob& page_blob)
       : _page_blob(page_blob), _offset(0) {}
 
-  ~XdbSequentialFile() { std::cout << "<<<close seq file " << std::endl; }
+  ~XdbReadableFile() { std::cout << "<<<close readable file " << std::endl; }
 
-  Status Read(size_t n, Slice* result, char* scratch) {
+  virtual Status Read(size_t n, Slice* result, char* scratch) {
+    return ReadContents(&_offset, n, result, scratch);
+  }
+
+  virtual Status Read(uint64_t offset, size_t n, Slice* result,
+                      char* scratch) const {
+    return ReadContents(&offset, n, result, scratch);
+  }
+
+  Status Skip(uint64_t n) {
+    std::cout << "Skip:" << n << std::endl;
+    _offset += n;
+    return Status::OK();
+  }
+
+ private:
+  Status ReadContents(uint64_t* origin, size_t n, Slice* result,
+                      char* scratch) const {
+    uint64_t offset = *origin;
     std::cout << "<<<read data: " << n << std::endl;
-    _offset = (_offset >> 9) << 9;
+    offset = (offset >> 9) << 9;
     size_t nz = ((n >> 9) + 1) << 9;
-    std::vector<page_range> pages =
-        _page_blob.download_page_ranges(_offset, nz);
+    std::vector<page_range> pages = _page_blob.download_page_ranges(offset, nz);
     if (pages.size() == 0) {
       *result = Slice(scratch, 0);
       return Status::OK();
@@ -61,7 +79,9 @@ class XdbSequentialFile : public SequentialFile {
     size_t remain = n;
     for (std::vector<page_range>::iterator it = pages.begin(); it < pages.end();
          it++) {
-      concurrency::streams::istream blobstream = _page_blob.open_read();
+      concurrency::streams::istream blobstream =
+          (const_cast<cloud_page_blob&>(_page_blob)).open_read();
+      // concurrency::streams::istream blobstream = _page_blob.open_read();
       blobstream.seek(it->start_offset(), std::ios_base::seekdir::beg);
       concurrency::streams::stringstreambuf buffer;
       blobstream.read(buffer, it->end_offset() - it->start_offset()).wait();
@@ -76,22 +96,18 @@ class XdbSequentialFile : public SequentialFile {
       // target += bsize;
       len += bsize;
     }
-    _offset += len;
+    offset += len;
     if (len == 0)
       *result = Slice(scratch, 0);
     else
       *result = Slice(scratch, len >= n ? n : len);
+    *origin = offset;
     return err_to_status(0);
-  }
-
-  Status Skip(uint64_t n) {
-    std::cout << "Skip:" << n << std::endl;
-    return Status::OK();
   }
 
  private:
   cloud_page_blob _page_blob;
-  size_t _offset;
+  uint64_t _offset;
 };
 
 class XdbWritableFile : public WritableFile {
@@ -198,6 +214,19 @@ Status EnvXdb::NewWritableFile(const std::string& fname,
   return EnvWrapper::NewWritableFile(fname, result, options);
 }
 
+Status EnvXdb::NewRandomAccessFile(const std::string& fname,
+                                   std::unique_ptr<RandomAccessFile>* result,
+                                   const EnvOptions& options) {
+  std::cout << "new rand access file:" << fname << std::endl;
+  if (fname.find(was_store) == 0) {
+    cloud_page_blob page_blob =
+        _container.get_page_blob_reference(fname.substr(4));
+    result->reset(new XdbReadableFile(page_blob));
+    return Status::OK();
+  }
+  return EnvWrapper::NewRandomAccessFile(fname, result, options);
+}
+
 Status EnvXdb::NewSequentialFile(const std::string& fname,
                                  std::unique_ptr<SequentialFile>* result,
                                  const EnvOptions& options) {
@@ -205,7 +234,7 @@ Status EnvXdb::NewSequentialFile(const std::string& fname,
   if (fname.find(was_store) == 0) {
     cloud_page_blob page_blob =
         _container.get_page_blob_reference(fname.substr(4));
-    result->reset(new XdbSequentialFile(page_blob));
+    result->reset(new XdbReadableFile(page_blob));
     return Status::OK();
   }
   return EnvWrapper::NewSequentialFile(fname, result, options);

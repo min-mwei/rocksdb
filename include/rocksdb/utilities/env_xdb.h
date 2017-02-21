@@ -34,6 +34,10 @@ class EnvXdb : public EnvWrapper {
                                    std::unique_ptr<SequentialFile>* result,
                                    const EnvOptions& options) override;
 
+  virtual Status NewRandomAccessFile(const std::string& fname,
+                                     std::unique_ptr<RandomAccessFile>* result,
+                                     const EnvOptions& options) override;
+
   virtual Status NewDirectory(const std::string& name,
                               unique_ptr<Directory>* result) override;
 
