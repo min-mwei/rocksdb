@@ -328,8 +328,7 @@ Status EnvXdb::GetChildren(const std::string& dir,
 }
 
 void fixname(std::string& name) {
-  std::size_t pos = name.find_first_of("////");
-  //std::size_t pos = name.find_first_of("//");
+  std::size_t pos = name.find("//");
   if (pos != std::string::npos) {
     name.erase(pos, 1);
   }
@@ -445,6 +444,15 @@ Status EnvXdb::DeleteFile(const std::string& f) {
     return DeleteBlob(f.substr(4));
   }
   return EnvWrapper::DeleteFile(f);
+}
+
+Status EnvXdb::LockFile(const std::string& fname, FileLock** lock) {
+  *lock = nullptr;
+  return Status::OK();
+}
+
+Status EnvXdb::UnlockFile(FileLock* lock) {
+  return Status::OK();
 }
 
 Status EnvXdb::CreateDir(const std::string& d) {

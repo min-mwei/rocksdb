@@ -61,6 +61,10 @@ class EnvXdb : public EnvWrapper {
 
   virtual Status DeleteDir(const std::string& d) override;
 
+  virtual Status LockFile(const std::string& fname, FileLock** lock) override;
+
+  virtual Status UnlockFile(FileLock* lock) override;
+
   virtual ~EnvXdb() {}
 
   static EnvXdb* Default(Env* env);
