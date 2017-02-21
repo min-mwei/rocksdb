@@ -66,10 +66,10 @@ const std::string vprefix = "value_prefix_";
 void insert(DB* db, int size) {
   Status s;
   auto opt = WriteOptions();
-  for(int i = 0; i < size; i++) {
-     auto k = kprefix + PaddedNumber(i, 8);
-     auto v = vprefix + PaddedNumber(i, 8);
-     s = db->Put(opt, k, v);
+  for (int i = 0; i < size; i++) {
+    auto k = kprefix + PaddedNumber(i, 8);
+    auto v = vprefix + PaddedNumber(i, 8);
+    s = db->Put(opt, k, v);
   }
 }
 
@@ -78,12 +78,26 @@ void read(DB* db) {
   // get value
   auto opt = ReadOptions();
   opt.fill_cache = true;
-  for(int i = 0; i < 30; i++) {
-     auto k = kprefix + PaddedNumber(i, 8);
-     Status s = db->Get(opt, k, &value);
-     assert(s.ok());
-     std::cout << "value " << value << std::endl;
+  for (int i = 0; i < 5; i++) {
+    auto k = kprefix + PaddedNumber(i, 8);
+    Status s = db->Get(opt, k, &value);
+    assert(s.ok());
+    std::cout << "value " << value << std::endl;
   }
+}
+
+void update(DB* db) {
+  Status s;
+  auto opt = WriteOptions();
+
+  WriteBatch batch;
+  auto k = kprefix + PaddedNumber(1, 8);
+  //batch.Delete(k);
+  k = kprefix + PaddedNumber(2, 8);
+  auto v = vprefix + PaddedNumber(200, 8);
+  batch.Put(k, v);
+  s = db->Write(WriteOptions(), &batch);
+  assert(s.ok());
 }
 
 int main() {
@@ -106,8 +120,8 @@ int main() {
   BlockBasedTableOptions table_options;
   table_options.persistent_cache = cache;
   table_options.cache_index_and_filter_blocks = true;
-  //table_options.block_cache = NewLRUCache(100);
-  //table_options.block_cache_compressed = nullptr;
+  // table_options.block_cache = NewLRUCache(100);
+  // table_options.block_cache_compressed = nullptr;
 
   // bbt_opts.block_size = 32 * 1024;
   // bbt_opts.block_cache = cache;
@@ -118,9 +132,11 @@ int main() {
 
   insert(db, 10000000);
   read(db);
-  std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;
+  //std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;
   read(db);
-  std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;
+  //std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;
+  update(db);
+  read(db);
   /*
   // atomically apply a set of updates
   {
