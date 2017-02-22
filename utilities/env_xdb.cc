@@ -18,6 +18,7 @@ namespace rocksdb {
 const char* default_conn = "XDB_WAS_CONN";
 const char* default_container = "XDB_WAS_CONTAINER";
 const char* was_store = "was";
+const char* xdb_size = "__xdb__size";
 const std::string xdb_magic = "__xdb__";
 
 Status err_to_status(int r) {
@@ -44,9 +45,21 @@ class XdbReadableFile : virtual public SequentialFile,
                         virtual public RandomAccessFile {
  public:
   XdbReadableFile(cloud_page_blob& page_blob)
-      : _page_blob(page_blob), _offset(0) {}
+      : _page_blob(page_blob), _offset(0) {
+    //(const_cast<cloud_page_blob&>(_page_blob)).download_attributes();
+    try {
+      _page_blob.download_attributes();
+      std::string size = _page_blob.metadata()[xdb_size];
+      _size = size.empty() ? 0 : std::stoi(size);
+    } catch (const azure::storage::storage_exception& e) {
+      std::cout << "Ooops" << std::endl;
+      _size = -1;
+    }
+  }
 
-  ~XdbReadableFile() { std::cout << "<<<close readable file " << std::endl; }
+  ~XdbReadableFile() {
+    std::cout << "<<<close readable file: " << _page_blob.name() << std::endl;
+  }
 
   virtual Status Read(size_t n, Slice* result, char* scratch) {
     return ReadContents(&_offset, n, result, scratch);
@@ -67,6 +80,8 @@ class XdbReadableFile : virtual public SequentialFile,
   Status ReadContents(uint64_t* origin, size_t n, Slice* result,
                       char* scratch) const {
     uint64_t offset = *origin;
+
+    std::cout << "blob size:" << _size << std::endl;
     std::cout << "\n<<<read from offset: " << offset << " for size: " << n
               << std::endl;
     uint64_t page_offset = (offset >> 9) << 9;
@@ -99,6 +114,8 @@ class XdbReadableFile : virtual public SequentialFile,
       if (remain <= 0) break;
     }
     size_t r = n - remain;
+    // if(r > _size)
+    //  r = _size;
     std::cout << "total read in: " << r << std::endl;
     *result = Slice(scratch, r);
     offset += r + 1;
@@ -109,6 +126,7 @@ class XdbReadableFile : virtual public SequentialFile,
  private:
   cloud_page_blob _page_blob;
   uint64_t _offset;
+  uint64_t _size;
 };
 
 class XdbWritableFile : public WritableFile {
@@ -118,12 +136,25 @@ class XdbWritableFile : public WritableFile {
     _page_blob.create(64 * 1024 * 1024);
   }
 
-  ~XdbWritableFile() { std::cout << "close write file" << std::endl; }
+  ~XdbWritableFile() {
+    try {
+      if (_page_blob.exists()) {
+        _page_blob.metadata().reserve(1);
+        _page_blob.metadata()[xdb_size] =
+            std::to_string(_pageindex * _page_size + _pageoffset);
+        _page_blob.upload_metadata();
+      }
+      std::cout << "close write file: " << _page_blob.name() << std::endl;
+    } catch (const azure::storage::storage_exception& e) {
+      std::cout << "Ooops" << e.what() << std::endl;
+    }
+  }
 
   Status Append(const Slice& data) {
     std::cout << "append data: " << data.size() << std::endl;
     const char* src = data.data();
     size_t rc = data.size();
+    // memset(_buffer, 0, _page_size);
     while (rc > 0) {
       size_t left = _page_size - _pageoffset;
       if (rc > left) {
