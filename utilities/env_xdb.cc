@@ -137,15 +137,14 @@ class XdbWritableFile : public WritableFile {
  public:
   XdbWritableFile(cloud_page_blob& page_blob)
       : _page_blob(page_blob), _pageindex(0), _pageoffset(0) {
-    _page_blob.create(64 * 1024 * 1024);
+    _page_blob.create(1 * 1024 * 1024);
   }
 
   ~XdbWritableFile() {
     try {
       if (_page_blob.exists()) {
         _page_blob.metadata().reserve(1);
-        _page_blob.metadata()[xdb_size] =
-            std::to_string(_pageindex * _page_size + _pageoffset);
+        _page_blob.metadata()[xdb_size] = std::to_string(CurrSize());
         _page_blob.upload_metadata();
       }
       std::cout << "close write file: " << _page_blob.name() << std::endl;
@@ -158,6 +157,9 @@ class XdbWritableFile : public WritableFile {
     std::cout << "append data: " << data.size() << std::endl;
     const char* src = data.data();
     size_t rc = data.size();
+    if (rc + CurrSize() >= Capacity()) {
+      Expand();
+    }
     // memset(_buffer, 0, _page_size);
     while (rc > 0) {
       size_t left = _page_size - _pageoffset;
@@ -207,11 +209,29 @@ class XdbWritableFile : public WritableFile {
     return Status::OK();
   }
 
-  Status Close() { return err_to_status(0); }
+  Status Close() {
+    std::cout << "Close: " << _page_blob.name() << std::endl;
+    return err_to_status(0);
+  }
 
-  Status Flush() { return err_to_status(0); }
+  Status Flush() {
+    std::cout << "Flush: " << _page_blob.name() << std::endl;
+    return err_to_status(0);
+  }
 
-  Status Sync() { return err_to_status(0); }
+  Status Sync() {
+    std::cout << "Sync: " << _page_blob.name() << std::endl;
+    return err_to_status(0);
+  }
+
+ private:
+  inline uint64_t CurrSize() const {
+    return _pageindex * _page_size + _pageoffset;
+  }
+
+  inline uint64_t Capacity() const { return _page_blob.properties().size(); }
+
+  inline void Expand() { _page_blob.resize(Capacity() * 2); }
 
  private:
   const static int _page_size = 1024 * 4;
@@ -395,7 +415,7 @@ int EnvXdb::WASRename(const std::string& source, const std::string& target) {
     cloud_page_blob src_blob = _container.get_page_blob_reference(src);
     if (!src_blob.exists()) return 0;
     cloud_page_blob target_blob = _container.get_page_blob_reference(target);
-    target_blob.create(64 * 1024 * 1024);
+    target_blob.create(src_blob.properties().size());
     try {
       utility::string_t copy_id = target_blob.start_copy(src_blob);
     } catch (const azure::storage::storage_exception& e) {
