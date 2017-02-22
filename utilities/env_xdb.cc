@@ -50,7 +50,7 @@ class XdbReadableFile : virtual public SequentialFile,
     try {
       _page_blob.download_attributes();
       std::string size = _page_blob.metadata()[xdb_size];
-      _size = size.empty() ? 0 : std::stoi(size);
+      _size = size.empty() ? -1 : std::stoi(size);
     } catch (const azure::storage::storage_exception& e) {
       std::cout << "Ooops" << std::endl;
       _size = -1;
@@ -85,14 +85,21 @@ class XdbReadableFile : virtual public SequentialFile,
     std::cout << "\n<<<read from offset: " << offset << " for size: " << n
               << std::endl;
     uint64_t page_offset = (offset >> 9) << 9;
+    uint64_t sz = _size - offset;
+    if (sz > n) sz = n;
+    if (sz <= 0) {
+      *result = Slice(scratch, 0);
+      return Status::OK();
+    }
     std::cout << " offset: " << offset << " page_offset: " << page_offset
-              << std::endl;
+              << " sz: " << sz << std::endl;
     size_t cursor = offset - page_offset;
-    size_t nz = ((n >> 9) + 1) << 9;
+    size_t nz = ((sz >> 9) + 1) << 9;
     std::vector<page_range> pages =
         _page_blob.download_page_ranges(page_offset, nz);
     char* target = scratch;
-    size_t remain = n;
+    size_t remain = sz;
+    size_t r = 0;
     for (std::vector<page_range>::iterator it = pages.begin(); it < pages.end();
          it++) {
       concurrency::streams::istream blobstream =
@@ -111,15 +118,12 @@ class XdbReadableFile : virtual public SequentialFile,
       cursor = 0;
       remain -= len;
       target += len;
+      r += len;
       if (remain <= 0) break;
     }
-    size_t r = n - remain;
-    // if(r > _size)
-    //  r = _size;
     std::cout << "total read in: " << r << std::endl;
     *result = Slice(scratch, r);
-    offset += r + 1;
-    *origin = offset;
+    *origin = offset + r;
     return err_to_status(0);
   }
 
@@ -188,10 +192,20 @@ class XdbWritableFile : public WritableFile {
   }
 
   Status PositionedAppend(const Slice& /* data */, uint64_t /* offset */) {
+    std::cout << "xxxxPositionedAppendxxx " << std::endl;
     return Status::NotSupported();
   }
 
-  Status Truncate(uint64_t size) { return Status::NotSupported(); }
+  Status InvalidateCache(size_t offset, size_t length) {
+    std::cout << "xxxxInvalidateCachexxx " << std::endl;
+    return Status::OK();
+  }
+
+  Status Truncate(uint64_t size) {
+    std::cout << "Truncate to " << size << std::endl;
+    _page_blob.resize(((size >> 9) + 1) << 9);
+    return Status::OK();
+  }
 
   Status Close() { return err_to_status(0); }
 
