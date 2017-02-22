@@ -489,7 +489,15 @@ Status EnvXdb::CreateDirIfMissing(const std::string& d) {
 Status EnvXdb::DeleteDir(const std::string& d) {
   std::cout << "DeleteDir d:" << d << std::endl;
   if (d.find(was_store) == 0) {
-    return DeleteBlob(d.substr(4));
+    std::string name = d.substr(4);
+    cloud_blob_directory dir_blob = _container.get_directory_reference(name);
+    try {
+      cloud_page_blob mblob = dir_blob.get_page_blob_reference(xdb_magic);
+      mblob.delete_blob();
+    } catch (const azure::storage::storage_exception& e) {
+      return Status::IOError();
+    }
+    return DeleteBlob(name);
   }
   return EnvWrapper::DeleteDir(d);
 }
