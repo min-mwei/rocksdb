@@ -67,16 +67,16 @@ class XdbReadableFile : virtual public SequentialFile,
   Status ReadContents(uint64_t* origin, size_t n, Slice* result,
                       char* scratch) const {
     uint64_t offset = *origin;
-    std::cout << "<<<read data: " << n << std::endl;
-    offset = (offset >> 9) << 9;
+    std::cout << "\n<<<read from offset: " << offset << " for size: " << n
+              << std::endl;
+    uint64_t page_offset = (offset >> 9) << 9;
+    std::cout << " offset: " << offset << " page_offset: " << page_offset
+              << std::endl;
+    size_t cursor = offset - page_offset;
     size_t nz = ((n >> 9) + 1) << 9;
-    std::vector<page_range> pages = _page_blob.download_page_ranges(offset, nz);
-    if (pages.size() == 0) {
-      *result = Slice(scratch, 0);
-      return Status::OK();
-    }
+    std::vector<page_range> pages =
+        _page_blob.download_page_ranges(page_offset, nz);
     char* target = scratch;
-    size_t len = 0;
     size_t remain = n;
     for (std::vector<page_range>::iterator it = pages.begin(); it < pages.end();
          it++) {
@@ -85,22 +85,23 @@ class XdbReadableFile : virtual public SequentialFile,
       blobstream.seek(it->start_offset(), std::ios_base::seekdir::beg);
       concurrency::streams::stringstreambuf buffer;
       blobstream.read(buffer, it->end_offset() - it->start_offset()).wait();
+      std::cout << " page start_offset: " << it->start_offset()
+                << " end_offset: " << it->end_offset() << std::endl;
+      const char* src = buffer.collection().c_str();
       size_t bsize = buffer.size();
-      if (bsize > remain) bsize = remain;
-      // buffer.scopy(target, bsize);
-      for (auto& ch : buffer.collection()) {
-        *target = ch;
-        target++;
-      }
-      remain -= bsize;
-      // target += bsize;
-      len += bsize;
+      size_t len = remain < bsize ? remain : bsize;
+      len -= cursor;
+      memcpy(target, src + cursor, len);
+      std::cout << "read in: " << len << std::endl;
+      cursor = 0;
+      remain -= len;
+      target += len;
+      if (remain <= 0) break;
     }
-    offset += len;
-    if (len == 0)
-      *result = Slice(scratch, 0);
-    else
-      *result = Slice(scratch, len >= n ? n : len);
+    size_t r = n - remain;
+    std::cout << "total read in: " << r << std::endl;
+    *result = Slice(scratch, r);
+    offset += r + 1;
     *origin = offset;
     return err_to_status(0);
   }
