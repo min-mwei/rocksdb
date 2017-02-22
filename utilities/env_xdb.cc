@@ -422,7 +422,6 @@ int EnvXdb::WASRename(const std::string& source, const std::string& target) {
       target_blob.delete_blob();
       return -EIO;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
     target_blob.download_attributes();
     copy_state state = target_blob.copy_state();
     if (state.status() == copy_status::success) {
