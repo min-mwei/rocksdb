@@ -338,10 +338,9 @@ int EnvXdb::WASRename(const std::string& source, const std::string& target) {
   try {
     std::string src(source);
     fixname(src);
-    //std::cout << "WASRename src: " << src << " dst: " << target << std::endl;
+    // std::cout << "WASRename src: " << src << " dst: " << target << std::endl;
     cloud_page_blob src_blob = _container.get_page_blob_reference(src);
-    if (!src_blob.exists())
-      return 0;
+    if (!src_blob.exists()) return 0;
     cloud_page_blob target_blob = _container.get_page_blob_reference(target);
     target_blob.create(64 * 1024 * 1024);
     try {
@@ -397,9 +396,12 @@ Status EnvXdb::FileExists(const std::string& fname) {
   std::cout << "file exists: " << fname << std::endl;
   if (fname.find(was_store) == 0) {
     try {
-      cloud_page_blob page_blob =
-          _container.get_page_blob_reference(fname.substr(4));
-      return Status::OK();
+      std::string name = fname.substr(4);
+      cloud_page_blob page_blob = _container.get_page_blob_reference(name);
+      if (page_blob.exists()) return Status::OK();
+      cloud_blob_directory dir_blob = _container.get_directory_reference(name);
+      if (dir_blob.is_valid()) return Status::OK();
+      return Status::NotFound();
     } catch (const azure::storage::storage_exception& e) {
       return Status::NotFound();
     }
