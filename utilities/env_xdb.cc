@@ -26,7 +26,7 @@ Status err_to_status(int r) {
     case -ENOENT:
       return Status::IOError();
     case -ENODATA:
-  case -ENOTDIR:
+    case -ENOTDIR:
       return Status::NotFound(Status::kNone);
     case -EINVAL:
       return Status::InvalidArgument(Status::kNone);
@@ -338,22 +338,17 @@ int EnvXdb::WASRename(const std::string& source, const std::string& target) {
   try {
     std::string src(source);
     fixname(src);
-    std::cout << "WASRename src: " << src << " dst: " << target << std::endl;
-    cloud_page_blob src_blob;
-    try {
-      src_blob = _container.get_page_blob_reference(src);
-    } catch (const azure::storage::storage_exception& e) {
-      std::cout << "src error:" << e.what() << std::endl;
-      return -EIO;
-    }
+    //std::cout << "WASRename src: " << src << " dst: " << target << std::endl;
+    cloud_page_blob src_blob = _container.get_page_blob_reference(src);
+    if (!src_blob.exists())
+      return 0;
     cloud_page_blob target_blob = _container.get_page_blob_reference(target);
     target_blob.create(64 * 1024 * 1024);
     try {
       utility::string_t copy_id = target_blob.start_copy(src_blob);
     } catch (const azure::storage::storage_exception& e) {
-      std::cout << "rename copy error:" << e.what() << std::endl;
       target_blob.delete_blob();
-      return 0;
+      return -EIO;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     target_blob.download_attributes();
@@ -451,9 +446,7 @@ Status EnvXdb::LockFile(const std::string& fname, FileLock** lock) {
   return Status::OK();
 }
 
-Status EnvXdb::UnlockFile(FileLock* lock) {
-  return Status::OK();
-}
+Status EnvXdb::UnlockFile(FileLock* lock) { return Status::OK(); }
 
 Status EnvXdb::CreateDir(const std::string& d) {
   std::cout << "CreateDir d:" << d << std::endl;
