@@ -18,6 +18,7 @@ namespace rocksdb {
 const char* default_conn = "XDB_WAS_CONN";
 const char* default_container = "XDB_WAS_CONTAINER";
 const char* was_store = "was";
+const std::string xdb_magic = "__xdb__";
 
 Status err_to_status(int r) {
   switch (r) {
@@ -220,8 +221,11 @@ Status EnvXdb::NewRandomAccessFile(const std::string& fname,
   if (fname.find(was_store) == 0) {
     cloud_page_blob page_blob =
         _container.get_page_blob_reference(fname.substr(4));
-    result->reset(new XdbReadableFile(page_blob));
-    return Status::OK();
+    if (page_blob.exists()) {
+      result->reset(new XdbReadableFile(page_blob));
+      return Status::OK();
+    }
+    return Status::NotFound();
   }
   return EnvWrapper::NewRandomAccessFile(fname, result, options);
 }
@@ -233,8 +237,11 @@ Status EnvXdb::NewSequentialFile(const std::string& fname,
   if (fname.find(was_store) == 0) {
     cloud_page_blob page_blob =
         _container.get_page_blob_reference(fname.substr(4));
-    result->reset(new XdbReadableFile(page_blob));
-    return Status::OK();
+    if (page_blob.exists()) {
+      result->reset(new XdbReadableFile(page_blob));
+      return Status::OK();
+    }
+    return Status::NotFound();
   }
   return EnvWrapper::NewSequentialFile(fname, result, options);
 }
@@ -400,7 +407,10 @@ Status EnvXdb::FileExists(const std::string& fname) {
       cloud_page_blob page_blob = _container.get_page_blob_reference(name);
       if (page_blob.exists()) return Status::OK();
       cloud_blob_directory dir_blob = _container.get_directory_reference(name);
-      if (dir_blob.is_valid()) return Status::OK();
+      if (dir_blob.is_valid()) {
+        cloud_page_blob mblob = dir_blob.get_page_blob_reference(xdb_magic);
+        if (mblob.exists()) return Status::OK();
+      }
       return Status::NotFound();
     } catch (const azure::storage::storage_exception& e) {
       return Status::NotFound();
@@ -453,6 +463,11 @@ Status EnvXdb::UnlockFile(FileLock* lock) { return Status::OK(); }
 Status EnvXdb::CreateDir(const std::string& d) {
   std::cout << "CreateDir d:" << d << std::endl;
   if (d.find(was_store) == 0) {
+    std::string name = d.substr(4);
+    cloud_blob_directory dir_blob = _container.get_directory_reference(name);
+    cloud_page_blob page_blob = dir_blob.get_page_blob_reference(xdb_magic);
+    if (page_blob.exists()) return Status::IOError();
+    page_blob.create(512);
     return Status::OK();
   }
   return EnvWrapper::CreateDir(d);
@@ -461,6 +476,11 @@ Status EnvXdb::CreateDir(const std::string& d) {
 Status EnvXdb::CreateDirIfMissing(const std::string& d) {
   std::cout << "CreateDirIfMissing d:" << d << std::endl;
   if (d.find(was_store) == 0) {
+    std::string name = d.substr(4);
+    cloud_blob_directory dir_blob = _container.get_directory_reference(name);
+    cloud_page_blob page_blob = dir_blob.get_page_blob_reference(xdb_magic);
+    if (page_blob.exists()) return Status::OK();
+    page_blob.create(512);
     return Status::OK();
   }
   return EnvWrapper::CreateDirIfMissing(d);
