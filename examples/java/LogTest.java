@@ -152,7 +152,7 @@ public class LogTest {
       put(acme, keys, values);
     }
 
-    //acme.flush(new FlushOptions());
+    acme.flush(new FlushOptions());
     long t2 = System.nanoTime();
     System.out.println("scan log");
     scanlog(acme);

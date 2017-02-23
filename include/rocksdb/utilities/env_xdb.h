@@ -65,6 +65,11 @@ class EnvXdb : public EnvWrapper {
 
   virtual Status UnlockFile(FileLock* lock) override;
 
+  virtual uint64_t GetThreadID() const override;
+
+  virtual Status NewLogger(const std::string& fname,
+                           std::shared_ptr<Logger>* result) override;
+
   virtual ~EnvXdb() {}
 
   static EnvXdb* Default(Env* env);

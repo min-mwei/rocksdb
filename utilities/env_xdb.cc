@@ -20,6 +20,7 @@ const char* default_container = "XDB_WAS_CONTAINER";
 const char* was_store = "was";
 const char* xdb_size = "__xdb__size";
 const std::string xdb_magic = "__xdb__";
+static Logger* mylog = nullptr;
 
 Status err_to_status(int r) {
   switch (r) {
@@ -75,6 +76,8 @@ class XdbReadableFile : virtual public SequentialFile,
     _offset += n;
     return Status::OK();
   }
+
+  const char* Name() { return _page_blob.name().c_str(); }
 
  private:
   Status ReadContents(uint64_t* origin, size_t n, Slice* result,
@@ -153,6 +156,43 @@ class XdbWritableFile : public WritableFile {
     }
   }
 
+  virtual Status Append(const char* src, size_t size) {
+    if (size + CurrSize() >= Capacity()) {
+      Expand();
+    }
+    // memset(_buffer, 0, _page_size);
+    while (size > 0) {
+      size_t left = _page_size - _pageoffset;
+      if (size > left) {
+        memcpy(&_buffer[_pageoffset], src, left);
+        _pageoffset = 0;
+        size -= left;
+        src += left;
+      } else {
+        memcpy(&_buffer[_pageoffset], src, size);
+        _pageoffset += size;
+        size = 0;
+        src += size;
+      }
+      std::vector<char> buffer;
+      buffer.assign(&_buffer[0], &_buffer[_page_size]);
+      concurrency::streams::istream page_stream =
+          concurrency::streams::bytestream::open_istream(buffer);
+      try {
+        // std::cout << " azure page offset: " << _pageindex * _page_size
+        //          << std::endl;
+        _page_blob.upload_pages(page_stream, _pageindex * _page_size,
+                                utility::string_t(U("")));
+      } catch (const azure::storage::storage_exception& e) {
+        std::cout << "append error:" << e.what() << std::endl;
+      }
+      if (size != 0 && _pageoffset == 0) _pageindex++;
+    }
+    std::cout << " append pages: " << _pageindex
+              << "page offset: " << _pageoffset << std::endl;
+    return err_to_status(0);
+  }
+
   Status Append(const Slice& data) {
     std::cout << "append data: " << data.size() << std::endl;
     const char* src = data.data();
@@ -223,6 +263,8 @@ class XdbWritableFile : public WritableFile {
     std::cout << "Sync: " << _page_blob.name() << std::endl;
     return err_to_status(0);
   }
+
+  const char* Name() { return _page_blob.name().c_str(); }
 
  private:
   inline uint64_t CurrSize() const {
@@ -565,6 +607,117 @@ Status EnvXdb::DeleteDir(const std::string& d) {
     return DeleteBlob(name);
   }
   return EnvWrapper::DeleteDir(d);
+}
+
+class XdbLogger : public Logger {
+ private:
+  XdbWritableFile* file_;
+  uint64_t (*gettid_)();  // Return the thread id for the current thread
+
+ public:
+  XdbLogger(XdbWritableFile* f, uint64_t (*gettid)())
+      : file_(f), gettid_(gettid) {
+    Log(InfoLogLevel::DEBUG_LEVEL, mylog, "[hdfs] XdbLogger opened %s\n",
+        file_->Name());
+  }
+
+  virtual ~XdbLogger() {
+    Log(InfoLogLevel::DEBUG_LEVEL, mylog, "[hdfs] XdbLogger closed %s\n",
+        file_->Name());
+    delete file_;
+    if (mylog != nullptr && mylog == this) {
+      mylog = nullptr;
+    }
+  }
+
+  virtual void Logv(const char* format, va_list ap) {
+    const uint64_t thread_id = (*gettid_)();
+
+    // We try twice: the first time with a fixed-size stack allocated buffer,
+    // and the second time with a much larger dynamically allocated buffer.
+    char buffer[500];
+    for (int iter = 0; iter < 2; iter++) {
+      char* base;
+      int bufsize;
+      if (iter == 0) {
+        bufsize = sizeof(buffer);
+        base = buffer;
+      } else {
+        bufsize = 30000;
+        base = new char[bufsize];
+      }
+      char* p = base;
+      char* limit = base + bufsize;
+
+      struct timeval now_tv;
+      gettimeofday(&now_tv, nullptr);
+      const time_t seconds = now_tv.tv_sec;
+      struct tm t;
+      localtime_r(&seconds, &t);
+      p += snprintf(p, limit - p, "%04d/%02d/%02d-%02d:%02d:%02d.%06d %llx ",
+                    t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour,
+                    t.tm_min, t.tm_sec, static_cast<int>(now_tv.tv_usec),
+                    static_cast<long long unsigned int>(thread_id));
+
+      // Print the message
+      if (p < limit) {
+        va_list backup_ap;
+        va_copy(backup_ap, ap);
+        p += vsnprintf(p, limit - p, format, backup_ap);
+        va_end(backup_ap);
+      }
+
+      // Truncate to available space if necessary
+      if (p >= limit) {
+        if (iter == 0) {
+          continue;  // Try again with larger buffer
+        } else {
+          p = limit - 1;
+        }
+      }
+
+      // Add newline if necessary
+      if (p == base || p[-1] != '\n') {
+        *p++ = '\n';
+      }
+
+      assert(p <= limit);
+      file_->Append(base, p - base);
+      file_->Flush();
+      if (base != buffer) {
+        delete[] base;
+      }
+      break;
+    }
+  }
+};
+
+static uint64_t gettid() {
+  assert(sizeof(pthread_t) <= sizeof(uint64_t));
+  return (uint64_t)pthread_self();
+}
+
+uint64_t EnvXdb::GetThreadID() const { return gettid(); }
+
+Status EnvXdb::NewLogger(const std::string& fname,
+                         std::shared_ptr<Logger>* result) {
+  std::cout << "NewLogger :" << fname << std::endl;
+  if (fname.find(was_store) == 0) {
+    cloud_page_blob page_blob =
+        _container.get_page_blob_reference(fname.substr(4));
+    XdbWritableFile* f = new XdbWritableFile(page_blob);
+    if (f == nullptr) {
+      *result = nullptr;
+      return Status::IOError();
+    }
+    XdbLogger* h = new XdbLogger(f, &gettid);
+    result->reset(h);
+    if (mylog == nullptr) {
+      // mylog = h; // uncomment this for detailed logging
+    }
+    return Status::OK();
+  }
+  return EnvWrapper::NewLogger(fname, result);
 }
 
 EnvXdb* EnvXdb::Default(Env* env) {
