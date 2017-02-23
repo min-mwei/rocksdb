@@ -58,7 +58,6 @@
 #include "db/version_set.h"
 #include "db/write_batch_internal.h"
 #include "db/write_callback.h"
-#include "db/xfunc_test_points.h"
 #include "memtable/hash_linklist_rep.h"
 #include "memtable/hash_skiplist_rep.h"
 #include "port/likely.h"
@@ -100,7 +99,6 @@
 #include "util/sync_point.h"
 #include "util/thread_status_updater.h"
 #include "util/thread_status_util.h"
-#include "util/xfunc.h"
 
 namespace rocksdb {
 
@@ -4393,10 +4391,6 @@ Iterator* DBImpl::NewIterator(const ReadOptions& read_options,
   }
   auto cfh = reinterpret_cast<ColumnFamilyHandleImpl*>(column_family);
   auto cfd = cfh->cfd();
-
-  XFUNC_TEST("", "managed_new", managed_new1, xf_manage_new,
-             reinterpret_cast<DBImpl*>(this),
-             const_cast<ReadOptions*>(&read_options), is_snapshot_supported_);
   if (read_options.managed) {
 #ifdef ROCKSDB_LITE
     // not supported in lite version
@@ -4505,9 +4499,6 @@ Status DBImpl::NewIterators(
   }
   iterators->clear();
   iterators->reserve(column_families.size());
-  XFUNC_TEST("", "managed_new", managed_new1, xf_manage_new,
-             reinterpret_cast<DBImpl*>(this),
-             const_cast<ReadOptions*>(&read_options), is_snapshot_supported_);
   if (read_options.managed) {
 #ifdef ROCKSDB_LITE
     return Status::InvalidArgument(
@@ -4647,21 +4638,8 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
   if (my_batch == nullptr) {
     return Status::Corruption("Batch is nullptr!");
   }
-  if (write_options.timeout_hint_us != 0) {
-    return Status::InvalidArgument("timeout_hint_us is deprecated");
-  }
 
   Status status;
-
-  bool xfunc_attempted_write = false;
-  XFUNC_TEST("transaction", "transaction_xftest_write_impl",
-             xf_transaction_write1, xf_transaction_write, write_options,
-             immutable_db_options_, my_batch, callback, this, &status,
-             &xfunc_attempted_write);
-  if (xfunc_attempted_write) {
-    // Test already did the write
-    return status;
-  }
 
   PERF_TIMER_GUARD(write_pre_and_post_process_time);
   WriteThread::Writer w;
@@ -4740,7 +4718,8 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
   if (UNLIKELY(!single_column_family_mode_ &&
                total_log_size_ > GetMaxTotalWalSize())) {
     MaybeFlushColumnFamilies();
-  } else if (UNLIKELY(write_buffer_manager_->ShouldFlush())) {
+  }
+  if (UNLIKELY(write_buffer_manager_->ShouldFlush())) {
     // Before a new memtable is added in SwitchMemtable(),
     // write_buffer_manager_->ShouldFlush() will keep returning true. If another
     // thread is writing to another DB with the same write buffer, they may also
@@ -6542,10 +6521,15 @@ Status DBImpl::IngestExternalFile(
                                             immutable_db_options_, env_options_,
                                             &snapshots_, ingestion_options);
 
-  // Make sure that bg cleanup wont delete the files that we are ingesting
   std::list<uint64_t>::iterator pending_output_elem;
   {
     InstrumentedMutexLock l(&mutex_);
+    if (!bg_error_.ok()) {
+      // Don't ingest files when there is a bg_error
+      return bg_error_;
+    }
+
+    // Make sure that bg cleanup wont delete the files that we are ingesting
     pending_output_elem = CaptureCurrentFileNumberInPendingOutputs();
   }
 
