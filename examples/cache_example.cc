@@ -79,12 +79,15 @@ void batchInsert(DB* db, int size) {
   for (int k = 0; k < size; k++) {
     WriteBatch batch;
     int base = k*1000000;
-    for (int i = k; i < k + 1000; i++) {
+    for (int i = k; i < k + 10000; i++) {
       auto k = kprefix + PaddedNumber(i, 8);
       auto v = vprefix + PaddedNumber(i, 8);
       batch.Put(k, v);
     }
     s = db->Write(WriteOptions(), &batch);
+    if(!s.ok()) {
+      std::cout<< s.ToString() << std::endl;
+    }
     assert(s.ok());
   }
 }
@@ -152,7 +155,7 @@ int main(int argc, char* argv[]) {
   assert(s.ok());
 
   batchInsert(db, 100);
-  db->Flush(FlushOptions());
+  //db->Flush(FlushOptions());
   read(db);
   // std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;
   read(db);
