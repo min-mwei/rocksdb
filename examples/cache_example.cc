@@ -86,7 +86,7 @@ void batchInsert(DB* db, int size) {
     }
     s = db->Write(WriteOptions(), &batch);
     if(!s.ok()) {
-      std::cout<< s.ToString() << std::endl;
+      std::cout<< "batch insert:" << s.ToString() << std::endl;
     }
     assert(s.ok());
   }
@@ -116,8 +116,10 @@ void update(DB* db) {
   auto v = vprefix + PaddedNumber(200, 8);
   batch.Put(k, v);
   s = db->Write(WriteOptions(), &batch);
-  std::cout<< s.ToString() << std::endl;
-  //assert(s.ok());
+  if(!s.ok()) {
+    std::cout<< "update: " << s.ToString() << std::endl;
+  }
+  assert(s.ok());
 }
 
 int main(int argc, char* argv[]) {
@@ -154,7 +156,7 @@ int main(int argc, char* argv[]) {
   Status s = DB::Open(options, argv[1], &db);
   assert(s.ok());
 
-  batchInsert(db, 100);
+  batchInsert(db, 1000);
   //db->Flush(FlushOptions());
   read(db);
   // std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;
