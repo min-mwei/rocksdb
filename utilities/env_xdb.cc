@@ -48,7 +48,6 @@ class XdbReadableFile : virtual public SequentialFile,
  public:
   XdbReadableFile(cloud_page_blob& page_blob)
       : _page_blob(page_blob), _offset(0) {
-    //(const_cast<cloud_page_blob&>(_page_blob)).download_attributes();
     try {
       _page_blob.download_attributes();
       std::string size = _page_blob.metadata()[xdb_size];
@@ -168,7 +167,6 @@ class XdbWritableFile : public WritableFile {
       if (size + CurrSize() >= Capacity()) {
         Expand();
       }
-      // memset(_buffer, 0, _page_size);
       while (size > 0) {
         size_t left = _page_size - _pageoffset;
         if (size > left) {
@@ -220,7 +218,8 @@ class XdbWritableFile : public WritableFile {
     try {
       _page_blob.resize(((size >> 9) + 1) << 9);
     } catch (const azure::storage::storage_exception& e) {
-      std::cout << "truncate error:" << _page_blob.name() << " " << e.what() << std::endl;
+      std::cout << "truncate error:" << _page_blob.name() << " " << e.what()
+                << std::endl;
     }
     return Status::OK();
   }
@@ -508,7 +507,8 @@ Status EnvXdb::GetFileSize(const std::string& f, uint64_t* s) {
   std::cout << "GetFileSize for name:" << f << std::endl;
   if (f.find(was_store) == 0) {
     try {
-      cloud_page_blob page_blob = _container.get_page_blob_reference(f.substr(4));
+      cloud_page_blob page_blob =
+          _container.get_page_blob_reference(f.substr(4));
       page_blob.download_attributes();
       std::string size = page_blob.metadata()[xdb_size];
       *s = size.empty() ? -1 : std::stoi(size);
@@ -611,7 +611,6 @@ class XdbLogger : public Logger {
 
   virtual void Logv(const char* format, va_list ap) {
     const uint64_t thread_id = (*gettid_)();
-
     // We try twice: the first time with a fixed-size stack allocated buffer,
     // and the second time with a much larger dynamically allocated buffer.
     char buffer[500];
