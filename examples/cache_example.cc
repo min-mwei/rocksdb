@@ -77,6 +77,7 @@ void batchInsert(DB* db, int size) {
   Status s;
   auto opt = WriteOptions();
   for (int k = 0; k < size; k++) {
+    std::cout<< "batch :" << k << std::endl;
     WriteBatch batch;
     int base = k*1000000;
     for (int i = k; i < k + 10000; i++) {
@@ -89,6 +90,7 @@ void batchInsert(DB* db, int size) {
       std::cout<< "batch insert:" << s.ToString() << std::endl;
     }
     assert(s.ok());
+    db->Flush(FlushOptions());
   }
 }
 
@@ -156,7 +158,7 @@ int main(int argc, char* argv[]) {
   Status s = DB::Open(options, argv[1], &db);
   assert(s.ok());
 
-  batchInsert(db, 1000);
+  batchInsert(db, 5);
   //db->Flush(FlushOptions());
   read(db);
   // std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;
