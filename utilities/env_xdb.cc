@@ -83,52 +83,58 @@ class XdbReadableFile : virtual public SequentialFile,
  private:
   Status ReadContents(uint64_t* origin, size_t n, Slice* result,
                       char* scratch) const {
-    uint64_t offset = *origin;
+    try {
+      uint64_t offset = *origin;
 
-    std::cout << "blob size:" << _size << std::endl;
-    std::cout << "\n<<<read from offset: " << offset << " for size: " << n
-              << std::endl;
-    uint64_t page_offset = (offset >> 9) << 9;
-    uint64_t sz = _size - offset;
-    if (sz > n) sz = n;
-    if (sz <= 0) {
-      *result = Slice(scratch, 0);
-      return Status::OK();
+      std::cout << "blob size:" << _size << std::endl;
+      std::cout << "\n<<<read from offset: " << offset << " for size: " << n
+                << std::endl;
+      uint64_t page_offset = (offset >> 9) << 9;
+      uint64_t sz = _size - offset;
+      if (sz > n) sz = n;
+      if (sz <= 0) {
+        *result = Slice(scratch, 0);
+        return Status::OK();
+      }
+      std::cout << " offset: " << offset << " page_offset: " << page_offset
+                << " sz: " << sz << std::endl;
+      size_t cursor = offset - page_offset;
+      size_t nz = ((sz >> 9) + 1) << 9;
+      std::vector<page_range> pages =
+          _page_blob.download_page_ranges(page_offset, nz);
+      char* target = scratch;
+      size_t remain = sz;
+      size_t r = 0;
+      for (std::vector<page_range>::iterator it = pages.begin();
+           it < pages.end(); it++) {
+        concurrency::streams::istream blobstream =
+            (const_cast<cloud_page_blob&>(_page_blob)).open_read();
+        blobstream.seek(it->start_offset(), std::ios_base::beg);
+        concurrency::streams::stringstreambuf buffer;
+        blobstream.read(buffer, it->end_offset() - it->start_offset()).wait();
+        // std::cout << " page start_offset: " << it->start_offset()
+        //          << " end_offset: " << it->end_offset() << std::endl;
+        const char* src = buffer.collection().c_str();
+        size_t bsize = buffer.size();
+        size_t len = remain < bsize ? remain : bsize - cursor;
+        std::cout << " ####### len: " << len << "cursor: " << cursor
+                  << "bsize: " << bsize << "remain:" << remain << std::endl;
+        memcpy(target, src + cursor, len);
+        std::cout << "read in: " << len << std::endl;
+        cursor = 0;
+        remain -= len;
+        target += len;
+        r += len;
+        if (remain <= 0) break;
+      }
+      std::cout << "total read in: " << r << std::endl;
+      *result = Slice(scratch, r);
+      *origin = offset + r;
+      return err_to_status(0);
+    } catch (const azure::storage::storage_exception& e) {
+      std::cout << "Ooops read from: " << _page_blob.name() << std::endl;
     }
-    std::cout << " offset: " << offset << " page_offset: " << page_offset
-              << " sz: " << sz << std::endl;
-    size_t cursor = offset - page_offset;
-    size_t nz = ((sz >> 9) + 1) << 9;
-    std::vector<page_range> pages =
-        _page_blob.download_page_ranges(page_offset, nz);
-    char* target = scratch;
-    size_t remain = sz;
-    size_t r = 0;
-    for (std::vector<page_range>::iterator it = pages.begin(); it < pages.end();
-         it++) {
-      concurrency::streams::istream blobstream =
-          (const_cast<cloud_page_blob&>(_page_blob)).open_read();
-      blobstream.seek(it->start_offset(), std::ios_base::beg);
-      concurrency::streams::stringstreambuf buffer;
-      blobstream.read(buffer, it->end_offset() - it->start_offset()).wait();
-      //std::cout << " page start_offset: " << it->start_offset()
-      //          << " end_offset: " << it->end_offset() << std::endl;
-      const char* src = buffer.collection().c_str();
-      size_t bsize = buffer.size();
-      size_t len = remain < bsize ? remain : bsize - cursor;
-      std::cout << " ####### len: " << len << "cursor: " << cursor << "bsize: " << bsize << "remain:" << remain<< std::endl;
-      memcpy(target, src + cursor, len);
-      std::cout << "read in: " << len << std::endl;
-      cursor = 0;
-      remain -= len;
-      target += len;
-      r += len;
-      if (remain <= 0) break;
-    }
-    std::cout << "total read in: " << r << std::endl;
-    *result = Slice(scratch, r);
-    *origin = offset + r;
-    return err_to_status(0);
+    return Status::IOError(Status::kNone);
   }
 
  private:
@@ -158,81 +164,46 @@ class XdbWritableFile : public WritableFile {
   }
 
   virtual Status Append(const char* src, size_t size) {
-    if (size + CurrSize() >= Capacity()) {
-      Expand();
-    }
-    // memset(_buffer, 0, _page_size);
-    while (size > 0) {
-      size_t left = _page_size - _pageoffset;
-      if (size > left) {
-        memcpy(&_buffer[_pageoffset], src, left);
-        _pageoffset = 0;
-        size -= left;
-        src += left;
-      } else {
-        memcpy(&_buffer[_pageoffset], src, size);
-        _pageoffset += size;
-        size = 0;
-        src += size;
+    try {
+      if (size + CurrSize() >= Capacity()) {
+        Expand();
       }
-      std::vector<char> buffer;
-      buffer.assign(&_buffer[0], &_buffer[_page_size]);
-      concurrency::streams::istream page_stream =
-          concurrency::streams::bytestream::open_istream(buffer);
-      try {
+      // memset(_buffer, 0, _page_size);
+      while (size > 0) {
+        size_t left = _page_size - _pageoffset;
+        if (size > left) {
+          memcpy(&_buffer[_pageoffset], src, left);
+          _pageoffset = 0;
+          size -= left;
+          src += left;
+        } else {
+          memcpy(&_buffer[_pageoffset], src, size);
+          _pageoffset += size;
+          size = 0;
+          src += size;
+        }
+        std::vector<char> buffer;
+        buffer.assign(&_buffer[0], &_buffer[_page_size]);
+        concurrency::streams::istream page_stream =
+            concurrency::streams::bytestream::open_istream(buffer);
+
         // std::cout << " azure page offset: " << _pageindex * _page_size
         //          << std::endl;
         _page_blob.upload_pages(page_stream, _pageindex * _page_size,
                                 utility::string_t(U("")));
-      } catch (const azure::storage::storage_exception& e) {
-        std::cout << "append error:" << e.what() << std::endl;
+        if (size != 0 && _pageoffset == 0) _pageindex++;
       }
-      if (size != 0 && _pageoffset == 0) _pageindex++;
+      // std::cout << " append pages: " << _pageindex
+      //          << "page offset: " << _pageoffset << std::endl;
+      return err_to_status(0);
+
+    } catch (const azure::storage::storage_exception& e) {
+      std::cout << "append error:" << e.what() << std::endl;
     }
-    //std::cout << " append pages: " << _pageindex
-    //          << "page offset: " << _pageoffset << std::endl;
-    return err_to_status(0);
+    return Status::IOError();
   }
 
-  Status Append(const Slice& data) {
-    //std::cout << "append data: " << data.size() << std::endl;
-    const char* src = data.data();
-    size_t rc = data.size();
-    if (rc + CurrSize() >= Capacity()) {
-      Expand();
-    }
-    // memset(_buffer, 0, _page_size);
-    while (rc > 0) {
-      size_t left = _page_size - _pageoffset;
-      if (rc > left) {
-        memcpy(&_buffer[_pageoffset], src, left);
-        _pageoffset = 0;
-        rc -= left;
-        src += left;
-      } else {
-        memcpy(&_buffer[_pageoffset], src, rc);
-        _pageoffset += rc;
-        rc = 0;
-        src += rc;
-      }
-      std::vector<char> buffer;
-      buffer.assign(&_buffer[0], &_buffer[_page_size]);
-      concurrency::streams::istream page_stream =
-          concurrency::streams::bytestream::open_istream(buffer);
-      try {
-        // std::cout << " azure page offset: " << _pageindex * _page_size
-        //          << std::endl;
-        _page_blob.upload_pages(page_stream, _pageindex * _page_size,
-                                utility::string_t(U("")));
-      } catch (const azure::storage::storage_exception& e) {
-        std::cout << "append error:" << e.what() << std::endl;
-      }
-      if (rc != 0 && _pageoffset == 0) _pageindex++;
-    }
-    //std::cout << " append pages: " << _pageindex
-    //          << "page offset: " << _pageoffset << std::endl;
-    return err_to_status(0);
-  }
+  Status Append(const Slice& data) { return Append(data.data(), data.size()); }
 
   Status PositionedAppend(const Slice& /* data */, uint64_t /* offset */) {
     std::cout << "xxxxPositionedAppendxxx " << std::endl;
@@ -246,7 +217,11 @@ class XdbWritableFile : public WritableFile {
 
   Status Truncate(uint64_t size) {
     std::cout << "Truncate to " << size << std::endl;
-    _page_blob.resize(((size >> 9) + 1) << 9);
+    try {
+      _page_blob.resize(((size >> 9) + 1) << 9);
+    } catch (const azure::storage::storage_exception& e) {
+      std::cout << "truncate error:" << _page_blob.name() << " " << e.what() << std::endl;
+    }
     return Status::OK();
   }
 
@@ -257,7 +232,7 @@ class XdbWritableFile : public WritableFile {
 
   Status Flush() {
     std::string LOG("LOG");
-    //if(_page_blob.name().rfind(LOG) == std::string::npos)
+    // if(_page_blob.name().rfind(LOG) == std::string::npos)
     //  std::cout << "Flush: " << _page_blob.name() << std::endl;
     return err_to_status(0);
   }
@@ -532,12 +507,13 @@ Status EnvXdb::FileExists(const std::string& fname) {
 Status EnvXdb::GetFileSize(const std::string& f, uint64_t* s) {
   std::cout << "GetFileSize for name:" << f << std::endl;
   if (f.find(was_store) == 0) {
-    cloud_page_blob page_blob = _container.get_page_blob_reference(f.substr(4));
-    std::vector<page_range> pages = page_blob.download_page_ranges();
-    if (pages.size() == 0) {
-      *s = 0;
-    } else {
-      *s = pages[pages.size() - 1].end_offset();
+    try {
+      cloud_page_blob page_blob = _container.get_page_blob_reference(f.substr(4));
+      page_blob.download_attributes();
+      std::string size = page_blob.metadata()[xdb_size];
+      *s = size.empty() ? -1 : std::stoi(size);
+    } catch (const azure::storage::storage_exception& e) {
+      std::cout << "Ooops GetFileSize: " << f << std::endl;
     }
     std::cout << "GetFileSize size" << *s << std::endl;
     return Status::OK();
@@ -620,12 +596,12 @@ class XdbLogger : public Logger {
  public:
   XdbLogger(XdbWritableFile* f, uint64_t (*gettid)())
       : file_(f), gettid_(gettid) {
-    Log(InfoLogLevel::DEBUG_LEVEL, mylog, "[hdfs] XdbLogger opened %s\n",
+    Log(InfoLogLevel::DEBUG_LEVEL, mylog, "[xdb] XdbLogger opened %s\n",
         file_->Name());
   }
 
   virtual ~XdbLogger() {
-    Log(InfoLogLevel::DEBUG_LEVEL, mylog, "[hdfs] XdbLogger closed %s\n",
+    Log(InfoLogLevel::DEBUG_LEVEL, mylog, "[xdb] XdbLogger closed %s\n",
         file_->Name());
     delete file_;
     if (mylog != nullptr && mylog == this) {
