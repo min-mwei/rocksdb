@@ -20,7 +20,7 @@
 
 using namespace rocksdb;
 
-std::string kDBPath = "./acme_data";
+// std::string kDBPath = "./acme_data";
 
 class ConsoleLogger : public Logger {
  public:
@@ -92,7 +92,7 @@ void update(DB* db) {
 
   WriteBatch batch;
   auto k = kprefix + PaddedNumber(1, 8);
-  //batch.Delete(k);
+  // batch.Delete(k);
   k = kprefix + PaddedNumber(2, 8);
   auto v = vprefix + PaddedNumber(200, 8);
   batch.Put(k, v);
@@ -100,7 +100,11 @@ void update(DB* db) {
   assert(s.ok());
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+  if (argc < 2) {
+    std::cout << " program dbname cachepath" << std::endl;
+    exit(-1);
+  }
   DB* db;
   Options options;
   // Optimize RocksDB. This is the easiest way to get RocksDB to perform well
@@ -111,7 +115,7 @@ int main() {
 
   Status status;
   uint64_t cache_size = 1024 * 1024 * 1024;
-  std::string cache_path = "./acme_cache";
+  std::string cache_path = argv[2];
   auto log = std::make_shared<ConsoleLogger>();
   std::shared_ptr<PersistentCache> cache;
   status = NewPersistentCache(Env::Default(), cache_path,
@@ -127,14 +131,15 @@ int main() {
   // bbt_opts.block_cache = cache;
   options.table_factory.reset(NewBlockBasedTableFactory(table_options));
   // open DB
-  Status s = DB::Open(options, kDBPath, &db);
+  Status s = DB::Open(options, argv[1], &db);
   assert(s.ok());
 
   insert(db, 10000000);
+  db->Flush(FlushOptions());
   read(db);
-  //std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;
+  // std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;
   read(db);
-  //std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;
+  // std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;
   update(db);
   read(db);
   /*
