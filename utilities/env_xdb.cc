@@ -483,7 +483,6 @@ Status EnvXdb::FileExists(const std::string& fname) {
         cloud_page_blob mblob = dir_blob.get_page_blob_reference(xdb_magic);
         if (mblob.exists()) return Status::OK();
       }
-      std::cout << "file not exists: " << fname << std::endl;
       return Status::NotFound();
     } catch (const azure::storage::storage_exception& e) {
       std::cout << "Ooops: " << fname << " " << e.what() << std::endl;
