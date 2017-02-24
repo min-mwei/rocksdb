@@ -97,6 +97,7 @@ void update(DB* db) {
   auto v = vprefix + PaddedNumber(200, 8);
   batch.Put(k, v);
   s = db->Write(WriteOptions(), &batch);
+  std::cout<< s.ToString() << std::endl;
   assert(s.ok());
 }
 
@@ -134,13 +135,14 @@ int main(int argc, char* argv[]) {
   Status s = DB::Open(options, argv[1], &db);
   assert(s.ok());
 
-  insert(db, 10000000);
+  insert(db, 100);
   db->Flush(FlushOptions());
   read(db);
   // std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;
   read(db);
   // std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;
   update(db);
+  //db->Flush(FlushOptions());
   read(db);
   /*
   // atomically apply a set of updates
