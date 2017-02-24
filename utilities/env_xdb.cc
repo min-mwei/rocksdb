@@ -37,6 +37,7 @@ Status err_to_status(int r) {
       return Status::IOError(Status::kNone);
     default:
       // FIXME :(
+      IOError("fixme", -1);
       assert(0 == "unrecognized error code");
       return Status::NotSupported(Status::kNone);
   }
@@ -110,12 +111,13 @@ class XdbReadableFile : virtual public SequentialFile,
       blobstream.seek(it->start_offset(), std::ios_base::beg);
       concurrency::streams::stringstreambuf buffer;
       blobstream.read(buffer, it->end_offset() - it->start_offset()).wait();
-      std::cout << " page start_offset: " << it->start_offset()
-                << " end_offset: " << it->end_offset() << std::endl;
+      //std::cout << " page start_offset: " << it->start_offset()
+      //          << " end_offset: " << it->end_offset() << std::endl;
       const char* src = buffer.collection().c_str();
       size_t bsize = buffer.size();
       size_t len = remain < bsize ? remain : bsize;
-      len -= cursor;
+      std::cout << " ####### len: " << len << "cursor: " << cursor << "bsize: " << bsize << "remain:" << remain<< std::endl;
+      //len -= cursor;
       memcpy(target, src + cursor, len);
       std::cout << "read in: " << len << std::endl;
       cursor = 0;
@@ -188,13 +190,13 @@ class XdbWritableFile : public WritableFile {
       }
       if (size != 0 && _pageoffset == 0) _pageindex++;
     }
-    std::cout << " append pages: " << _pageindex
-              << "page offset: " << _pageoffset << std::endl;
+    //std::cout << " append pages: " << _pageindex
+    //          << "page offset: " << _pageoffset << std::endl;
     return err_to_status(0);
   }
 
   Status Append(const Slice& data) {
-    std::cout << "append data: " << data.size() << std::endl;
+    //std::cout << "append data: " << data.size() << std::endl;
     const char* src = data.data();
     size_t rc = data.size();
     if (rc + CurrSize() >= Capacity()) {
@@ -228,8 +230,8 @@ class XdbWritableFile : public WritableFile {
       }
       if (rc != 0 && _pageoffset == 0) _pageindex++;
     }
-    std::cout << " append pages: " << _pageindex
-              << "page offset: " << _pageoffset << std::endl;
+    //std::cout << " append pages: " << _pageindex
+    //          << "page offset: " << _pageoffset << std::endl;
     return err_to_status(0);
   }
 
@@ -255,7 +257,9 @@ class XdbWritableFile : public WritableFile {
   }
 
   Status Flush() {
-    std::cout << "Flush: " << _page_blob.name() << std::endl;
+    std::string LOG("LOG");
+    //if(_page_blob.name().rfind(LOG) == std::string::npos)
+    //  std::cout << "Flush: " << _page_blob.name() << std::endl;
     return err_to_status(0);
   }
 
