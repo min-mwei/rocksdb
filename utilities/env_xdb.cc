@@ -115,9 +115,8 @@ class XdbReadableFile : virtual public SequentialFile,
       //          << " end_offset: " << it->end_offset() << std::endl;
       const char* src = buffer.collection().c_str();
       size_t bsize = buffer.size();
-      size_t len = remain < bsize ? remain : bsize;
+      size_t len = remain < bsize ? remain : bsize - cursor;
       std::cout << " ####### len: " << len << "cursor: " << cursor << "bsize: " << bsize << "remain:" << remain<< std::endl;
-      //len -= cursor;
       memcpy(target, src + cursor, len);
       std::cout << "read in: " << len << std::endl;
       cursor = 0;
