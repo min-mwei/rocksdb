@@ -8,14 +8,14 @@ ifndef DISABLE_JEMALLOC
 	PLATFORM_CXXFLAGS += $(JEMALLOC_INCLUDE)
 endif
 
-PLATFORM_LDFLAGS += -L/usr/local/lib -L/usr/local/Cellar/openssl/1.0.2j/lib -lboost_system -lssl -lcrypto -lcpprest -lazurestorage -lboost_system-mt -lboost_thread-mt -lboost_chrono
+PLATFORM_LDFLAGS += -L/usr/local/lib -L/usr/local/Cellar/openssl/1.0.2j/lib -lboost_system -lssl -lcrypto -lcpprest -lazurestorage -lboost_system -lboost_thread -lboost_chrono
 
 .PHONY: clean librocksdb
 
 all: cache_example simple_example column_families_example compact_files_example c_simple_example optimistic_transaction_example transaction_example compaction_filter_example options_file_example
 
 cache_example: librocksdb cache_example.cc
-	$(CXX) $(CXXFLAGS) $@.cc -o$@ ../librocksdb.a -I../include -I ../ -O2 -std=c++11 $(PLATFORM_LDFLAGS) $(PLATFORM_CXXFLAGS) $(EXEC_LDFLAGS)
+	$(CXX) $(CXXFLAGS) $@.cc -o$@ ../librocksdb_debug.a -I../include -I ../ -O2 -std=c++11 $(PLATFORM_LDFLAGS) $(PLATFORM_CXXFLAGS) $(EXEC_LDFLAGS)
 
 simple_example: librocksdb simple_example.cc
 	$(CXX) $(CXXFLAGS) $@.cc -o$@ ../librocksdb.a -I../include -O2 -std=c++11 $(PLATFORM_LDFLAGS) $(PLATFORM_CXXFLAGS) $(EXEC_LDFLAGS)
@@ -46,6 +46,3 @@ options_file_example: librocksdb options_file_example.cc
 
 clean:
 	rm -rf ./simple_example ./column_families_example ./compact_files_example ./compaction_filter_example ./c_simple_example c_simple_example.o ./optimistic_transaction_example ./transaction_example ./options_file_example
-
-librocksdb:
-	cd .. && $(MAKE) static_lib
