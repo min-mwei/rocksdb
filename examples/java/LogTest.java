@@ -151,8 +151,9 @@ public class LogTest {
       gendata(i*batch, (i+1)*batch, keys, values);
       put(acme, keys, values);
     }
-
+    System.out.println("<<<<<*******flush");
     acme.flush(new FlushOptions());
+    System.out.println("*******flush>>>>>");
     long t2 = System.nanoTime();
     System.out.println("scan log");
     scanlog(acme);
