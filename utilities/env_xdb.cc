@@ -43,6 +43,14 @@ Status err_to_status(int r) {
   }
 }
 
+static size_t XdbGetUniqueId(const cloud_page_blob& page_blob, char* id,
+                             size_t max_size) {
+  const std::string path = page_blob.uri().path();
+  size_t len = path.size() > max_size ? max_size : path.size();
+  memcpy(id, path.c_str(), len);
+  return len;
+}
+
 class XdbReadableFile : virtual public SequentialFile,
                         virtual public RandomAccessFile {
  public:
@@ -75,6 +83,10 @@ class XdbReadableFile : virtual public SequentialFile,
     std::cout << "Skip:" << n << std::endl;
     _offset += n;
     return Status::OK();
+  }
+
+  virtual size_t GetUniqueId(char* id, size_t max_size) const {
+    return XdbGetUniqueId(_page_blob, id, max_size);
   }
 
   const char* Name() { return _page_blob.name().c_str(); }
@@ -234,6 +246,10 @@ class XdbWritableFile : public WritableFile {
       std::cout << "Ooops" << e.what() << std::endl;
     }
     return err_to_status(0);
+  }
+
+  size_t GetUniqueId(char* id, size_t max_size) const {
+    return XdbGetUniqueId(_page_blob, id, max_size);
   }
 
   const char* Name() { return _page_blob.name().c_str(); }
@@ -665,6 +681,8 @@ class XdbLogger : public Logger {
     }
   }
 };
+
+size_t EnvXdb::GetUniqueId(char* id, size_t max_size) { return 0; }
 
 static uint64_t gettid() {
   assert(sizeof(pthread_t) <= sizeof(uint64_t));

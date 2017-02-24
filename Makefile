@@ -139,7 +139,7 @@ LDFLAGS += -lrados
 endif
 
 LIB_SOURCES += utilities/env_xdb.cc
-CFLAGS += -I /usr/local/Cellar/openssl/1.0.2j/include -L/usr/local/lib
+CFLAGS += -I /usr/local/Cellar/openssl/1.0.2j/include
 CXXFLAGS += -I /usr/local/Cellar/openssl/1.0.2j/include
 LDFLAGS += -L/usr/local/lib -L/usr/local/Cellar/openssl/1.0.2j/lib -lboost_system -lssl -lcrypto -lcpprest -lazurestorage -lboost_system -lboost_thread -lboost_chrono
 
