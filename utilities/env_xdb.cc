@@ -66,9 +66,7 @@ class XdbReadableFile : virtual public SequentialFile,
     }
   }
 
-  ~XdbReadableFile() {
-    std::cout << "<<<close readable file: " << _page_blob.name() << std::endl;
-  }
+  ~XdbReadableFile() {}
 
   virtual Status Read(size_t n, Slice* result, char* scratch) {
     return ReadContents(&_offset, n, result, scratch);
@@ -96,10 +94,6 @@ class XdbReadableFile : virtual public SequentialFile,
                       char* scratch) const {
     try {
       uint64_t offset = *origin;
-
-      // std::cout << "blob size:" << _size << std::endl;
-      // std::cout << "\n<<<read from offset: " << offset << " for size: " << n
-      //          << std::endl;
       uint64_t page_offset = (offset >> 9) << 9;
       uint64_t sz = _size - offset;
       if (sz > n) sz = n;
@@ -107,8 +101,6 @@ class XdbReadableFile : virtual public SequentialFile,
         *result = Slice(scratch, 0);
         return Status::OK();
       }
-      // std::cout << " offset: " << offset << " page_offset: " << page_offset
-      //          << " sz: " << sz << std::endl;
       size_t cursor = offset - page_offset;
       size_t nz = ((sz >> 9) + 1) << 9;
       std::vector<page_range> pages =
@@ -123,22 +115,16 @@ class XdbReadableFile : virtual public SequentialFile,
         blobstream.seek(it->start_offset(), std::ios_base::beg);
         concurrency::streams::stringstreambuf buffer;
         blobstream.read(buffer, it->end_offset() - it->start_offset()).wait();
-        // std::cout << " page start_offset: " << it->start_offset()
-        //          << " end_offset: " << it->end_offset() << std::endl;
         const char* src = buffer.collection().c_str();
         size_t bsize = buffer.size();
         size_t len = remain < bsize ? remain : bsize - cursor;
-        // std::cout << " ####### len: " << len << "cursor: " << cursor
-        //          << "bsize: " << bsize << "remain:" << remain << std::endl;
         memcpy(target, src + cursor, len);
-        // std::cout << "read in: " << len << std::endl;
         cursor = 0;
         remain -= len;
         target += len;
         r += len;
         if (remain <= 0) break;
       }
-      // std::cout << "total read in: " << r << std::endl;
       *result = Slice(scratch, r);
       *origin = offset + r;
       return err_to_status(0);
@@ -185,15 +171,10 @@ class XdbWritableFile : public WritableFile {
         buffer.assign(&_buffer[0], &_buffer[_page_size]);
         concurrency::streams::istream page_stream =
             concurrency::streams::bytestream::open_istream(buffer);
-
-        // std::cout << " azure page offset: " << _pageindex * _page_size
-        //          << std::endl;
         _page_blob.upload_pages(page_stream, _pageindex * _page_size,
                                 utility::string_t(U("")));
         if (size != 0 && _pageoffset == 0) _pageindex++;
       }
-      // std::cout << " append pages: " << _pageindex
-      //          << "page offset: " << _pageoffset << std::endl;
       return err_to_status(0);
 
     } catch (const azure::storage::storage_exception& e) {
@@ -215,10 +196,10 @@ class XdbWritableFile : public WritableFile {
   }
 
   Status Truncate(uint64_t size) {
-    std::cout << "Truncate: " << _page_blob.name() << "to: " << size
-              << std::endl;
     try {
-      _page_blob.resize(((size >> 9) + 1) << 9);
+      if (_page_blob.exists()) {
+        _page_blob.resize(((size >> 9) + 1) << 9);
+      }
     } catch (const azure::storage::storage_exception& e) {
       std::cout << "truncate error:" << _page_blob.name() << " " << e.what()
                 << std::endl;
@@ -235,7 +216,7 @@ class XdbWritableFile : public WritableFile {
   Status Flush() { return err_to_status(0); }
 
   Status Sync() {
-    std::cout << "Sync: " << _page_blob.name() << std::endl;
+    // std::cout << "Sync: " << _page_blob.name() << std::endl;
     try {
       if (_page_blob.exists()) {
         _page_blob.metadata().reserve(1);
@@ -280,12 +261,10 @@ EnvXdb::EnvXdb(Env* env) : EnvWrapper(env) {
     std::cout << "connect_string or container_name is needed" << std::endl;
     exit(-1);
   }
-  // std::cout << "connect_string: " << connect_string << std::endl;
   try {
     cloud_storage_account storage_account =
         cloud_storage_account::parse(connect_string);
     _blob_client = storage_account.create_cloud_blob_client();
-    // std::cout << "container_name: " << container_name << std::endl;
     _container = _blob_client.get_container_reference(container_name);
     _container.create_if_not_exists();
   } catch (const azure::storage::storage_exception& e) {
@@ -300,7 +279,7 @@ EnvXdb::EnvXdb(Env* env) : EnvWrapper(env) {
 Status EnvXdb::NewWritableFile(const std::string& fname,
                                unique_ptr<WritableFile>* result,
                                const EnvOptions& options) {
-  std::cout << "new write file:" << fname << std::endl;
+  // std::cout << "new write file:" << fname << std::endl;
   if (fname.find(was_store) == 0) {
     cloud_page_blob page_blob =
         _container.get_page_blob_reference(fname.substr(4));
@@ -313,7 +292,7 @@ Status EnvXdb::NewWritableFile(const std::string& fname,
 Status EnvXdb::NewRandomAccessFile(const std::string& fname,
                                    std::unique_ptr<RandomAccessFile>* result,
                                    const EnvOptions& options) {
-  std::cout << "new rand access file:" << fname << std::endl;
+  // std::cout << "new rand access file:" << fname << std::endl;
   if (fname.find(was_store) == 0) {
     cloud_page_blob page_blob =
         _container.get_page_blob_reference(fname.substr(4));
@@ -329,7 +308,7 @@ Status EnvXdb::NewRandomAccessFile(const std::string& fname,
 Status EnvXdb::NewSequentialFile(const std::string& fname,
                                  std::unique_ptr<SequentialFile>* result,
                                  const EnvOptions& options) {
-  std::cout << "new read file:" << fname << std::endl;
+  // std::cout << "new read file:" << fname << std::endl;
   if (fname.find(was_store) == 0) {
     cloud_page_blob page_blob =
         _container.get_page_blob_reference(fname.substr(4));
@@ -358,7 +337,7 @@ class XdbDirectory : public Directory {
 
 Status EnvXdb::NewDirectory(const std::string& name,
                             unique_ptr<Directory>* result) {
-  std::cout << "new dir:" << name << std::endl;
+  // std::cout << "new dir:" << name << std::endl;
   if (name.find(was_store) == 0) {
     try {
       cloud_page_blob page_blob =
@@ -483,7 +462,7 @@ int EnvXdb::WASRename(const std::string& source, const std::string& target) {
 }
 
 Status EnvXdb::RenameFile(const std::string& src, const std::string& target) {
-  std::cout << "rename from:" << src << " to:" << target << std::endl;
+  // std::cout << "rename from:" << src << " to:" << target << std::endl;
   if (src.find(was_store) == 0 && target.find(was_store) == 0) {
     return err_to_status(WASRename(src.substr(4), target.substr(4)));
   }
@@ -543,7 +522,7 @@ Status EnvXdb::DeleteBlob(const std::string& f) {
 }
 
 Status EnvXdb::DeleteFile(const std::string& f) {
-  std::cout << "Delete file: " << f << std::endl;
+  // std::cout << "Delete file: " << f << std::endl;
   if (f.find(was_store) == 0) {
     return DeleteBlob(f.substr(4));
   }
@@ -584,7 +563,7 @@ Status EnvXdb::CreateDirIfMissing(const std::string& d) {
 }
 
 Status EnvXdb::DeleteDir(const std::string& d) {
-  std::cout << "DeleteDir d:" << d << std::endl;
+  // std::cout << "DeleteDir d:" << d << std::endl;
   if (d.find(was_store) == 0) {
     std::string name = d.substr(4);
     cloud_blob_directory dir_blob = _container.get_directory_reference(name);
@@ -693,7 +672,7 @@ uint64_t EnvXdb::GetThreadID() const { return gettid(); }
 
 Status EnvXdb::NewLogger(const std::string& fname,
                          std::shared_ptr<Logger>* result) {
-  std::cout << "NewLogger :" << fname << std::endl;
+  // std::cout << "NewLogger :" << fname << std::endl;
   if (fname.find(was_store) == 0) {
     cloud_page_blob page_blob =
         _container.get_page_blob_reference(fname.substr(4));
