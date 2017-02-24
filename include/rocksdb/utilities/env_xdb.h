@@ -67,6 +67,8 @@ class EnvXdb : public EnvWrapper {
 
   virtual uint64_t GetThreadID() const override;
 
+  virtual size_t GetUniqueId(char* id, size_t max_size);
+
   virtual Status NewLogger(const std::string& fname,
                            std::shared_ptr<Logger>* result) override;
 
