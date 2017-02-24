@@ -85,9 +85,9 @@ class XdbReadableFile : virtual public SequentialFile,
     try {
       uint64_t offset = *origin;
 
-      std::cout << "blob size:" << _size << std::endl;
-      std::cout << "\n<<<read from offset: " << offset << " for size: " << n
-                << std::endl;
+      //std::cout << "blob size:" << _size << std::endl;
+      //std::cout << "\n<<<read from offset: " << offset << " for size: " << n
+      //          << std::endl;
       uint64_t page_offset = (offset >> 9) << 9;
       uint64_t sz = _size - offset;
       if (sz > n) sz = n;
@@ -95,8 +95,8 @@ class XdbReadableFile : virtual public SequentialFile,
         *result = Slice(scratch, 0);
         return Status::OK();
       }
-      std::cout << " offset: " << offset << " page_offset: " << page_offset
-                << " sz: " << sz << std::endl;
+      //std::cout << " offset: " << offset << " page_offset: " << page_offset
+      //          << " sz: " << sz << std::endl;
       size_t cursor = offset - page_offset;
       size_t nz = ((sz >> 9) + 1) << 9;
       std::vector<page_range> pages =
@@ -116,17 +116,17 @@ class XdbReadableFile : virtual public SequentialFile,
         const char* src = buffer.collection().c_str();
         size_t bsize = buffer.size();
         size_t len = remain < bsize ? remain : bsize - cursor;
-        std::cout << " ####### len: " << len << "cursor: " << cursor
-                  << "bsize: " << bsize << "remain:" << remain << std::endl;
+        //std::cout << " ####### len: " << len << "cursor: " << cursor
+        //          << "bsize: " << bsize << "remain:" << remain << std::endl;
         memcpy(target, src + cursor, len);
-        std::cout << "read in: " << len << std::endl;
+        //std::cout << "read in: " << len << std::endl;
         cursor = 0;
         remain -= len;
         target += len;
         r += len;
         if (remain <= 0) break;
       }
-      std::cout << "total read in: " << r << std::endl;
+      //std::cout << "total read in: " << r << std::endl;
       *result = Slice(scratch, r);
       *origin = offset + r;
       return err_to_status(0);
@@ -214,7 +214,7 @@ class XdbWritableFile : public WritableFile {
   }
 
   Status Truncate(uint64_t size) {
-    std::cout << "Truncate to " << size << std::endl;
+    std::cout << "Truncate: " << _page_blob.name() << "to: " << size << std::endl;
     try {
       _page_blob.resize(((size >> 9) + 1) << 9);
     } catch (const azure::storage::storage_exception& e) {
@@ -363,7 +363,7 @@ Status EnvXdb::NewDirectory(const std::string& name,
 
 Status EnvXdb::GetAbsolutePath(const std::string& db_path,
                                std::string* output_path) {
-  std::cout << "abs path:" << db_path << std::endl;
+  //std::cout << "abs path:" << db_path << std::endl;
   return EnvWrapper::GetAbsolutePath(db_path, output_path);
 }
 
@@ -381,7 +381,7 @@ std::string firstname(const std::string& name) {
 
 Status EnvXdb::GetChildren(const std::string& dir,
                            std::vector<std::string>* result) {
-  std::cout << "GetChildren for: " << dir << std::endl;
+  //std::cout << "GetChildren for: " << dir << std::endl;
   if (dir.find(was_store) == 0) {
     try {
       result->clear();
@@ -390,9 +390,7 @@ Status EnvXdb::GetChildren(const std::string& dir,
                dir.substr(4), false, blob_listing_details::none, 0,
                blob_request_options(), operation_context());
            it != end; it++) {
-        if (it->is_blob()) {
-          // std::cout << "blob:" << it->as_blob().name() << std::endl;
-        } else {
+        if (!it->is_blob()) {
           list_blob_item_iterator bend;
           // std::cout << "enumerate folder:" << it->as_directory().prefix()
           //<< std::endl;
@@ -400,12 +398,8 @@ Status EnvXdb::GetChildren(const std::string& dir,
                bit != bend; bit++) {
             if (bit->is_blob()) {
               result->push_back(lastname(bit->as_blob().name()));
-              std::cout << "blob:" << lastname(bit->as_blob().name())
-                        << std::endl;
             } else {
               result->push_back(firstname(bit->as_directory().prefix()));
-              std::cout << "dir:" << firstname(bit->as_directory().prefix())
-                        << std::endl;
             }
           }
         }
@@ -504,7 +498,7 @@ Status EnvXdb::FileExists(const std::string& fname) {
 }
 
 Status EnvXdb::GetFileSize(const std::string& f, uint64_t* s) {
-  std::cout << "GetFileSize for name:" << f << std::endl;
+  //std::cout << "GetFileSize for name:" << f << std::endl;
   if (f.find(was_store) == 0) {
     try {
       cloud_page_blob page_blob =
@@ -515,7 +509,7 @@ Status EnvXdb::GetFileSize(const std::string& f, uint64_t* s) {
     } catch (const azure::storage::storage_exception& e) {
       std::cout << "Ooops GetFileSize: " << f << std::endl;
     }
-    std::cout << "GetFileSize size" << *s << std::endl;
+    //std::cout << "GetFileSize size: " << *s << std::endl;
     return Status::OK();
   }
   return EnvWrapper::GetFileSize(f, s);
@@ -547,7 +541,7 @@ Status EnvXdb::LockFile(const std::string& fname, FileLock** lock) {
 Status EnvXdb::UnlockFile(FileLock* lock) { return Status::OK(); }
 
 Status EnvXdb::CreateDir(const std::string& d) {
-  std::cout << "CreateDir d:" << d << std::endl;
+  //std::cout << "CreateDir d:" << d << std::endl;
   if (d.find(was_store) == 0) {
     std::string name = d.substr(4);
     cloud_blob_directory dir_blob = _container.get_directory_reference(name);
@@ -560,7 +554,7 @@ Status EnvXdb::CreateDir(const std::string& d) {
 }
 
 Status EnvXdb::CreateDirIfMissing(const std::string& d) {
-  std::cout << "CreateDirIfMissing d:" << d << std::endl;
+  //std::cout << "CreateDirIfMissing d:" << d << std::endl;
   if (d.find(was_store) == 0) {
     std::string name = d.substr(4);
     cloud_blob_directory dir_blob = _container.get_directory_reference(name);
