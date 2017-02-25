@@ -477,7 +477,7 @@ Status EnvXdb::FileExists(const std::string& fname) {
       std::string name = fname.substr(4);
       cloud_page_blob page_blob = _container.get_page_blob_reference(name);
       if (page_blob.exists()) {
-        std::cout << "file exists: " << fname << std::endl;
+        //std::cout << "file exists: " << fname << std::endl;
         return Status::OK();
       }
       cloud_blob_directory dir_blob = _container.get_directory_reference(name);
