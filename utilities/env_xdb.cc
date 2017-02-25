@@ -102,7 +102,9 @@ class XdbReadableFile : virtual public SequentialFile,
         return Status::OK();
       }
       size_t cursor = offset - page_offset;
-      size_t nz = ((sz >> 9) + 1) << 9;
+      assert(cursor<=512);
+      size_t nz = ((sz >> 9) + 1 + ((cursor > 0)? 1 : 0)) << 9;
+      //std::cout<<"cursor: " << cursor << "nz: " << nz << std::endl;
       std::vector<page_range> pages =
           _page_blob.download_page_ranges(page_offset, nz);
       char* target = scratch;
@@ -208,7 +210,7 @@ class XdbWritableFile : public WritableFile {
   }
 
   Status Close() {
-    std::cout << "Close: " << _page_blob.name() << std::endl;
+    //std::cout << "Close: " << _page_blob.name() << std::endl;
     Sync();
     return err_to_status(0);
   }
