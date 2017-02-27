@@ -125,12 +125,19 @@ void update(DB* db) {
 }
 
 int main(int argc, char* argv[]) {
-  if (argc < 2) {
-    std::cout << " program dbname cachepath" << std::endl;
+  if (argc < 4) {
+    std::cout << " program conn container dbname cachepath" << std::endl;
     exit(-1);
   }
   DB* db;
   Options options;
+  Env* env;
+  std::vector<std::pair<std::string, std::string>> dbpathmap;
+  std::string conn = argv[1];
+  std::string container = argv[2];
+  dbpathmap.push_back(std::make_pair(conn, container));
+  NewXdbEnv(&env, dbpathmap);
+  options.env = env;
   // Optimize RocksDB. This is the easiest way to get RocksDB to perform well
   options.IncreaseParallelism();
   options.OptimizeLevelStyleCompaction();
@@ -139,7 +146,7 @@ int main(int argc, char* argv[]) {
 
   Status status;
   uint64_t cache_size = 1024 * 1024 * 1024;
-  std::string cache_path = argv[2];
+  std::string cache_path = argv[4];
   auto log = std::make_shared<ConsoleLogger>();
   std::shared_ptr<PersistentCache> cache;
   status = NewPersistentCache(Env::Default(), cache_path,
@@ -155,7 +162,7 @@ int main(int argc, char* argv[]) {
   // bbt_opts.block_cache = cache;
   options.table_factory.reset(NewBlockBasedTableFactory(table_options));
   // open DB
-  Status s = DB::Open(options, argv[1], &db);
+  Status s = DB::Open(options, argv[3], &db);
   assert(s.ok());
 
   batchInsert(db, 5);
