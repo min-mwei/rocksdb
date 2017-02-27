@@ -57,16 +57,23 @@ class XdbReadableFile : virtual public SequentialFile,
   XdbReadableFile(cloud_page_blob& page_blob)
       : _page_blob(page_blob), _offset(0) {
     try {
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] XdbReadableFile opening file %s\n", page_blob.name().c_str());
       _page_blob.download_attributes();
       std::string size = _page_blob.metadata()[xdb_size];
       _size = size.empty() ? -1 : std::stoi(size);
     } catch (const azure::storage::storage_exception& e) {
-      std::cout << "Ooops" << std::endl;
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] XdbReadableFile opening file %s with exception %s\n",
+          page_blob.name().c_str(), e.what());
       _size = -1;
     }
   }
 
-  ~XdbReadableFile() {}
+  ~XdbReadableFile() {
+    Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+        "[xdb] XdbReadableFile closing file %s\n", _page_blob.name().c_str());
+  }
 
   virtual Status Read(size_t n, Slice* result, char* scratch) {
     return ReadContents(&_offset, n, result, scratch);
@@ -104,7 +111,6 @@ class XdbReadableFile : virtual public SequentialFile,
       size_t cursor = offset - page_offset;
       assert(cursor <= 512);
       size_t nz = ((sz >> 9) + 1 + ((cursor > 0) ? 1 : 0)) << 9;
-      // std::cout<<"cursor: " << cursor << "nz: " << nz << std::endl;
       std::vector<page_range> pages =
           _page_blob.download_page_ranges(page_offset, nz);
       char* target = scratch;
@@ -120,6 +126,7 @@ class XdbReadableFile : virtual public SequentialFile,
         const char* src = buffer.collection().c_str();
         size_t bsize = buffer.size();
         size_t len = remain < bsize ? remain : bsize - cursor;
+        assert(cursor + len <= bsize);
         memcpy(target, src + cursor, len);
         cursor = 0;
         remain -= len;
@@ -131,7 +138,9 @@ class XdbReadableFile : virtual public SequentialFile,
       *origin = offset + r;
       return err_to_status(0);
     } catch (const azure::storage::storage_exception& e) {
-      std::cout << "Ooops read from: " << _page_blob.name() << std::endl;
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] XdbReadableFile Read file %s with exception %s\n",
+          _page_blob.name().c_str(), e.what());
     }
     return Status::IOError(Status::kNone);
   }
@@ -146,10 +155,15 @@ class XdbWritableFile : public WritableFile {
  public:
   XdbWritableFile(cloud_page_blob& page_blob)
       : _page_blob(page_blob), _pageindex(0), _pageoffset(0) {
+    Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+        "[xdb] XdbWritableFile opening file %s\n", page_blob.name().c_str());
     _page_blob.create(1 * 1024 * 1024);
   }
 
-  ~XdbWritableFile() {}
+  ~XdbWritableFile() {
+    Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+        "[xdb] XdbWritableFile closing file %s\n", _page_blob.name().c_str());
+  }
 
   virtual Status Append(const char* src, size_t size) {
     try {
@@ -180,7 +194,9 @@ class XdbWritableFile : public WritableFile {
       return err_to_status(0);
 
     } catch (const azure::storage::storage_exception& e) {
-      std::cout << "append error:" << e.what() << std::endl;
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] XdbWritableFile Append file %s with exception %s\n",
+          _page_blob.name().c_str(), e.what());
     }
     return Status::IOError();
   }
@@ -188,12 +204,16 @@ class XdbWritableFile : public WritableFile {
   Status Append(const Slice& data) { return Append(data.data(), data.size()); }
 
   Status PositionedAppend(const Slice& /* data */, uint64_t /* offset */) {
-    std::cout << "xxxxPositionedAppendxxx " << std::endl;
+    Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+        "[xdb] XdbWritableFile PositionedAppend %s not supported\n",
+        _page_blob.name().c_str());
     return Status::NotSupported();
   }
 
   Status InvalidateCache(size_t offset, size_t length) {
-    std::cout << "xxxxInvalidateCachexxx " << std::endl;
+    Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+        "[xdb] XdbWritableFile InvalidateCache %s not supported\n",
+        _page_blob.name().c_str());
     return Status::OK();
   }
 
@@ -203,14 +223,16 @@ class XdbWritableFile : public WritableFile {
         _page_blob.resize(((size >> 9) + 1) << 9);
       }
     } catch (const azure::storage::storage_exception& e) {
-      std::cout << "truncate error:" << _page_blob.name() << " " << e.what()
-                << std::endl;
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] XdbWritableFile Append file %s with exception %s\n",
+          _page_blob.name().c_str(), e.what());
     }
     return Status::OK();
   }
 
   Status Close() {
-    // std::cout << "Close: " << _page_blob.name() << std::endl;
+    Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+        "[xdb] XdbWritableFile closing file %s\n", _page_blob.name().c_str());
     Sync();
     return err_to_status(0);
   }
@@ -218,7 +240,6 @@ class XdbWritableFile : public WritableFile {
   Status Flush() { return err_to_status(0); }
 
   Status Sync() {
-    // std::cout << "Sync: " << _page_blob.name() << std::endl;
     try {
       if (_page_blob.exists()) {
         _page_blob.metadata().reserve(1);
@@ -226,7 +247,9 @@ class XdbWritableFile : public WritableFile {
         _page_blob.upload_metadata();
       }
     } catch (const azure::storage::storage_exception& e) {
-      std::cout << "Ooops" << e.what() << std::endl;
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] XdbWritableFile Sync file %s with exception %s\n",
+          _page_blob.name().c_str(), e.what());
     }
     return err_to_status(0);
   }
@@ -260,7 +283,9 @@ EnvXdb::EnvXdb(Env* env) : EnvWrapper(env) {
   char* connect_string = std::getenv(default_conn);
   char* container_name = std::getenv(default_container);
   if (connect_string == NULL || container_name == NULL) {
-    std::cout << "connect_string or container_name is needed" << std::endl;
+    Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+        "[xdb] connect_string or container_name not provided\n");
+    assert(0);
     exit(-1);
   }
   try {
@@ -273,7 +298,9 @@ EnvXdb::EnvXdb(Env* env) : EnvWrapper(env) {
     std::cout << e.what() << std::endl;
     exit(-1);
   } catch (...) {
-    std::cout << "connect_string is invalid" << std::endl;
+    Log(InfoLogLevel::DEBUG_LEVEL, mylog, "[xdb] connect_string %s invalid\n",
+        connect_string);
+    assert(0);
     exit(-1);
   }
 }
@@ -281,7 +308,6 @@ EnvXdb::EnvXdb(Env* env) : EnvWrapper(env) {
 Status EnvXdb::NewWritableFile(const std::string& fname,
                                unique_ptr<WritableFile>* result,
                                const EnvOptions& options) {
-  // std::cout << "new write file:" << fname << std::endl;
   if (fname.find(was_store) == 0) {
     cloud_page_blob page_blob =
         _container.get_page_blob_reference(fname.substr(4));
@@ -294,7 +320,6 @@ Status EnvXdb::NewWritableFile(const std::string& fname,
 Status EnvXdb::NewRandomAccessFile(const std::string& fname,
                                    std::unique_ptr<RandomAccessFile>* result,
                                    const EnvOptions& options) {
-  // std::cout << "new rand access file:" << fname << std::endl;
   if (fname.find(was_store) == 0) {
     cloud_page_blob page_blob =
         _container.get_page_blob_reference(fname.substr(4));
@@ -310,7 +335,6 @@ Status EnvXdb::NewRandomAccessFile(const std::string& fname,
 Status EnvXdb::NewSequentialFile(const std::string& fname,
                                  std::unique_ptr<SequentialFile>* result,
                                  const EnvOptions& options) {
-  // std::cout << "new read file:" << fname << std::endl;
   if (fname.find(was_store) == 0) {
     cloud_page_blob page_blob =
         _container.get_page_blob_reference(fname.substr(4));
@@ -339,7 +363,6 @@ class XdbDirectory : public Directory {
 
 Status EnvXdb::NewDirectory(const std::string& name,
                             unique_ptr<Directory>* result) {
-  // std::cout << "new dir:" << name << std::endl;
   if (name.find(was_store) == 0) {
     try {
       cloud_page_blob page_blob =
@@ -347,7 +370,9 @@ Status EnvXdb::NewDirectory(const std::string& name,
       result->reset(new XdbDirectory(0));
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
-      std::cout << "Ooops NewDirectory:" << e.what() << std::endl;
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] EnvXdb NewDirectory %s with exception \n", name.c_str(),
+          e.what());
       return Status::IOError();
     }
   }
@@ -356,7 +381,6 @@ Status EnvXdb::NewDirectory(const std::string& name,
 
 Status EnvXdb::GetAbsolutePath(const std::string& db_path,
                                std::string* output_path) {
-  // std::cout << "abs path:" << db_path << std::endl;
   return EnvWrapper::GetAbsolutePath(db_path, output_path);
 }
 
@@ -374,7 +398,6 @@ std::string firstname(const std::string& name) {
 
 Status EnvXdb::GetChildren(const std::string& dir,
                            std::vector<std::string>* result) {
-  // std::cout << "GetChildren for: " << dir << std::endl;
   if (dir.find(was_store) == 0) {
     try {
       result->clear();
@@ -385,8 +408,9 @@ Status EnvXdb::GetChildren(const std::string& dir,
            it != end; it++) {
         if (!it->is_blob()) {
           list_blob_item_iterator bend;
-          // std::cout << "enumerate folder:" << it->as_directory().prefix()
-          //<< std::endl;
+          Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+              "[xdb] EnvXdb GetChildren for %s \n",
+              it->as_directory().prefix().c_str());
           for (list_blob_item_iterator bit = it->as_directory().list_blobs();
                bit != bend; bit++) {
             if (bit->is_blob()) {
@@ -398,8 +422,9 @@ Status EnvXdb::GetChildren(const std::string& dir,
         }
       }
     } catch (const azure::storage::storage_exception& e) {
-      std::cout << "Ooops get children: " << dir.substr(4) << e.what()
-                << std::endl;
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] EnvXdb GetChildren %s with exception %s\n", dir.c_str(),
+          e.what());
     }
     return Status::OK();
   }
@@ -417,7 +442,6 @@ int EnvXdb::WASRename(const std::string& source, const std::string& target) {
   try {
     std::string src(source);
     fixname(src);
-    // std::cout << "WASRename src: " << src << " dst: " << target << std::endl;
     cloud_page_blob src_blob = _container.get_page_blob_reference(src);
     if (!src_blob.exists()) return 0;
     cloud_page_blob target_blob = _container.get_page_blob_reference(target);
@@ -425,7 +449,9 @@ int EnvXdb::WASRename(const std::string& source, const std::string& target) {
     try {
       utility::string_t copy_id = target_blob.start_copy(src_blob);
     } catch (const azure::storage::storage_exception& e) {
-      std::cout << "Ooops WASRename: " << e.what() << std::endl;
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] EnvXdb WASRename src %s target %s with exception %s\n",
+          source.c_str(), target.c_str(), e.what());
       target_blob.delete_blob();
       return -EIO;
     }
@@ -453,18 +479,19 @@ int EnvXdb::WASRename(const std::string& source, const std::string& target) {
           state_description = "success";
           break;
       }
-      std::cout << "ErrorX:" << state_description << std::endl
-                << "The blob could not be renamed." << std::endl;
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] EnvXdb WASRename src %s target %s with exception %s\n",
+          source.c_str(), target.c_str(), state_description.c_str());
     }
   } catch (const azure::storage::storage_exception& e) {
-    std::cout << "Error:" << e.what() << std::endl
-              << "The blob could not be renamed." << std::endl;
+    Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+        "[xdb] EnvXdb WASRename src %s target %s with exception %s\n",
+        source.c_str(), target.c_str(), e.what());
   }
   return -EIO;
 }
 
 Status EnvXdb::RenameFile(const std::string& src, const std::string& target) {
-  // std::cout << "rename from:" << src << " to:" << target << std::endl;
   if (src.find(was_store) == 0 && target.find(was_store) == 0) {
     return err_to_status(WASRename(src.substr(4), target.substr(4)));
   }
@@ -477,7 +504,6 @@ Status EnvXdb::FileExists(const std::string& fname) {
       std::string name = fname.substr(4);
       cloud_page_blob page_blob = _container.get_page_blob_reference(name);
       if (page_blob.exists()) {
-        //std::cout << "file exists: " << fname << std::endl;
         return Status::OK();
       }
       cloud_blob_directory dir_blob = _container.get_directory_reference(name);
@@ -485,17 +511,17 @@ Status EnvXdb::FileExists(const std::string& fname) {
         cloud_page_blob mblob = dir_blob.get_page_blob_reference(xdb_magic);
         if (mblob.exists()) return Status::OK();
       }
-      return Status::NotFound();
     } catch (const azure::storage::storage_exception& e) {
-      std::cout << "Ooops: " << fname << " " << e.what() << std::endl;
-      return Status::NotFound();
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] EnvXdb FileExists %s target with exception %s\n",
+          fname.c_str(), e.what());
     }
+    return Status::NotFound();
   }
   return EnvWrapper::FileExists(fname);
 }
 
 Status EnvXdb::GetFileSize(const std::string& f, uint64_t* s) {
-  // std::cout << "GetFileSize for name:" << f << std::endl;
   if (f.find(was_store) == 0) {
     try {
       cloud_page_blob page_blob =
@@ -504,7 +530,9 @@ Status EnvXdb::GetFileSize(const std::string& f, uint64_t* s) {
       std::string size = page_blob.metadata()[xdb_size];
       *s = size.empty() ? -1 : std::stoi(size);
     } catch (const azure::storage::storage_exception& e) {
-      std::cout << "Ooops GetFileSize: " << f << std::endl;
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] EnvXdb GetFileSize %s target with exception %s\n", f.c_str(),
+          e.what());
     }
     return Status::OK();
   }
@@ -517,13 +545,14 @@ Status EnvXdb::DeleteBlob(const std::string& f) {
     page_blob.delete_blob();
     return Status::OK();
   } catch (const azure::storage::storage_exception& e) {
-    std::cout << "Ooops: " << f << " " << e.what() << std::endl;
+    Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+        "[xdb] EnvXdb DeleteBlob %s target with exception %s\n", f.c_str(),
+        e.what());
     return Status::IOError();
   }
 }
 
 Status EnvXdb::DeleteFile(const std::string& f) {
-  // std::cout << "Delete file: " << f << std::endl;
   if (f.find(was_store) == 0) {
     return DeleteBlob(f.substr(4));
   }
@@ -538,33 +567,44 @@ Status EnvXdb::LockFile(const std::string& fname, FileLock** lock) {
 Status EnvXdb::UnlockFile(FileLock* lock) { return Status::OK(); }
 
 Status EnvXdb::CreateDir(const std::string& d) {
-  // std::cout << "CreateDir d:" << d << std::endl;
   if (d.find(was_store) == 0) {
-    std::string name = d.substr(4);
-    cloud_blob_directory dir_blob = _container.get_directory_reference(name);
-    cloud_page_blob page_blob = dir_blob.get_page_blob_reference(xdb_magic);
-    if (page_blob.exists()) return Status::IOError();
-    page_blob.create(512);
-    return Status::OK();
+    try {
+      std::string name = d.substr(4);
+      cloud_blob_directory dir_blob = _container.get_directory_reference(name);
+      cloud_page_blob page_blob = dir_blob.get_page_blob_reference(xdb_magic);
+      if (page_blob.exists()) return Status::IOError();
+      page_blob.create(512);
+      return Status::OK();
+    } catch (const azure::storage::storage_exception& e) {
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] EnvXdb CreateDir %s target with exception %s\n", d.c_str(),
+          e.what());
+      return Status::IOError();
+    }
   }
   return EnvWrapper::CreateDir(d);
 }
 
 Status EnvXdb::CreateDirIfMissing(const std::string& d) {
-  // std::cout << "CreateDirIfMissing d:" << d << std::endl;
   if (d.find(was_store) == 0) {
-    std::string name = d.substr(4);
-    cloud_blob_directory dir_blob = _container.get_directory_reference(name);
-    cloud_page_blob page_blob = dir_blob.get_page_blob_reference(xdb_magic);
-    if (page_blob.exists()) return Status::OK();
-    page_blob.create(512);
-    return Status::OK();
+    try {
+      std::string name = d.substr(4);
+      cloud_blob_directory dir_blob = _container.get_directory_reference(name);
+      cloud_page_blob page_blob = dir_blob.get_page_blob_reference(xdb_magic);
+      if (page_blob.exists()) return Status::OK();
+      page_blob.create(512);
+      return Status::OK();
+    } catch (const azure::storage::storage_exception& e) {
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] EnvXdb CreateDir %s target with exception %s\n", d.c_str(),
+          e.what());
+      return Status::IOError();
+    }
   }
   return EnvWrapper::CreateDirIfMissing(d);
 }
 
 Status EnvXdb::DeleteDir(const std::string& d) {
-  // std::cout << "DeleteDir d:" << d << std::endl;
   if (d.find(was_store) == 0) {
     std::string name = d.substr(4);
     cloud_blob_directory dir_blob = _container.get_directory_reference(name);
@@ -572,7 +612,9 @@ Status EnvXdb::DeleteDir(const std::string& d) {
       cloud_page_blob mblob = dir_blob.get_page_blob_reference(xdb_magic);
       mblob.delete_blob();
     } catch (const azure::storage::storage_exception& e) {
-      std::cout << "Ooops: " << d << " " << e.what() << std::endl;
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] EnvXdb DeleteDir magic %s with exception %s\n", xdb_magic.c_str(),
+          e.what());
       return Status::IOError();
     }
     return DeleteBlob(name);
@@ -678,7 +720,6 @@ uint64_t EnvXdb::GetThreadID() const { return gettid(); }
 
 Status EnvXdb::NewLogger(const std::string& fname,
                          std::shared_ptr<Logger>* result) {
-  // std::cout << "NewLogger :" << fname << std::endl;
   if (fname.find(was_store) == 0) {
     cloud_page_blob page_blob =
         _container.get_page_blob_reference(fname.substr(4));
