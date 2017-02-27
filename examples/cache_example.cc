@@ -166,13 +166,13 @@ int main(int argc, char* argv[]) {
   assert(s.ok());
 
   batchInsert(db, 5);
-  //db->Flush(FlushOptions());
+  db->Flush(FlushOptions());
   read(db);
   // std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;
   read(db);
   // std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;
   update(db);
-  //db->Flush(FlushOptions());
+  db->Flush(FlushOptions());
   read(db);
   /*
   // atomically apply a set of updates
