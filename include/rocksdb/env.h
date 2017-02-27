@@ -1093,6 +1093,10 @@ Env* NewMemEnv(Env* base_env);
 // This is a factory method for HdfsEnv declared in hdfs/env_hdfs.h
 Status NewHdfsEnv(Env** hdfs_env, const std::string& fsname);
 
+// Returns a new environment that is used for Azure XStore environment.
+// This is a factory method for EnvXdb declared in rocksdb/utilities/env_xdb.h
+ Status NewXdbEnv(Env** xdb_env, const std::vector<std::pair<std::string, std::string>>& dbpathmap);
+
 }  // namespace rocksdb
 
 #endif  // STORAGE_ROCKSDB_INCLUDE_ENV_H_

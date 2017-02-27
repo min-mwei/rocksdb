@@ -24,7 +24,8 @@ class EnvXdb : public EnvWrapper {
   friend class XdbSequentialFile;
 
  public:
-  explicit EnvXdb(Env* env);
+  explicit EnvXdb(Env* env,
+                  const std::vector<std::pair<std::string, std::string>>& dbpathmap);
 
   virtual Status NewWritableFile(const std::string& fname,
                                  unique_ptr<WritableFile>* result,
@@ -74,14 +75,13 @@ class EnvXdb : public EnvWrapper {
 
   virtual ~EnvXdb() {}
 
-  static EnvXdb* Default(Env* env);
-
  private:
   int WASRename(const std::string& src, const std::string& target);
   Status DeleteBlob(const std::string& f);
+  bool isWAS(const std::string& name);
+  azure::storage::cloud_blob_container& GetContainer(const std::string& name);
 
  private:
-  azure::storage::cloud_blob_client _blob_client;
-  azure::storage::cloud_blob_container _container;
+  std::map<std::string, azure::storage::cloud_blob_container> _containermap;
 };
 }

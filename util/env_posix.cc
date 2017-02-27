@@ -931,8 +931,7 @@ Env* Env::Default() {
   // the singletons of ThreadLocalPtr.
   ThreadLocalPtr::InitSingletons();
   static PosixEnv default_env;
-  // return &default_env;
-  return EnvXdb::Default(&default_env);
+  return &default_env;
 }
 
 }  // namespace rocksdb
