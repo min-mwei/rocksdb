@@ -304,8 +304,25 @@ BENCHTOOLOBJECTS = $(BENCH_LIB_SOURCES:.cc=.o) $(LIBOBJECTS) $(TESTUTIL)
 EXPOBJECTS = $(EXP_LIB_SOURCES:.cc=.o) $(LIBOBJECTS) $(TESTUTIL)
 
 TESTS = \
+	db_basic_test \
 	db_test \
 	db_test2 \
+	external_sst_file_test \
+	auto_roll_logger_test \
+	bloom_test \
+	dynamic_bloom_test \
+	c_test \
+	checkpoint_test \
+	crc32c_test \
+	coding_test \
+	inlineskiplist_test \
+	env_basic_test \
+	env_test \
+	thread_local_test \
+	rate_limiter_test \
+	perf_context_test \
+	iostats_context_test \
+	db_wal_test \
 	db_block_cache_test \
 	db_bloom_filter_test \
 	db_iter_test \
@@ -321,10 +338,8 @@ TESTS = \
 	db_options_test \
 	db_range_del_test \
 	db_sst_test \
-	external_sst_file_test \
 	db_tailing_iter_test \
 	db_universal_compaction_test \
-	db_wal_test \
 	db_io_failure_test \
 	db_properties_test \
 	db_table_properties_test \
@@ -333,20 +348,11 @@ TESTS = \
 	column_family_test \
 	table_properties_collector_test \
 	arena_test \
-	auto_roll_logger_test \
 	block_test \
-	bloom_test \
-	dynamic_bloom_test \
-	c_test \
 	cache_test \
-	checkpoint_test \
-	coding_test \
 	corruption_test \
-	crc32c_test \
 	slice_transform_test \
 	dbformat_test \
-	env_basic_test \
-	env_test \
 	fault_injection_test \
 	filelock_test \
 	filename_test \
@@ -355,7 +361,6 @@ TESTS = \
 	full_filter_block_test \
 	hash_table_test \
 	histogram_test \
-	inlineskiplist_test \
 	log_test \
 	manual_compaction_test \
 	mock_env_test \
@@ -391,9 +396,7 @@ TESTS = \
 	write_controller_test\
 	deletefile_test \
 	table_test \
-	thread_local_test \
 	geodb_test \
-	rate_limiter_test \
 	delete_scheduler_test \
 	options_test \
 	options_settable_test \
@@ -411,7 +414,6 @@ TESTS = \
 	sst_dump_test \
 	column_aware_encoding_test \
 	compact_files_test \
-	perf_context_test \
 	optimistic_transaction_test \
 	write_callback_test \
 	heap_test \
@@ -420,7 +422,6 @@ TESTS = \
 	option_change_migration_test \
 	transaction_test \
 	ldb_cmd_test \
-	iostats_context_test \
 	persistent_cache_test \
 	statistics_test \
 	lua_test \
@@ -675,6 +676,8 @@ check_0:
 	  | grep -E '$(tests-regexp)'					\
 	  | build_tools/gnu_parallel -j$(J) --plain --joblog=LOG $$eta --gnu '{} >& t/log-{/}'
 
+valgrind-blacklist-regexp = InlineSkipTest.ConcurrentInsert|TransactionTest.DeadlockStress|DBCompactionTest.SuggestCompactRangeNoTwoLevel0Compactions|BackupableDBTest.RateLimiting|DBTest.CloseSpeedup|DBTest.ThreadStatusFlush|DBTest.RateLimitingTest|DBTest.EncodeDecompressedBlockSizeTest|FaultInjectionTest.UninstalledCompaction|HarnessTest.Randomized|ExternalSSTFileTest.CompactDuringAddFileRandom|ExternalSSTFileTest.IngestFileWithGlobalSeqnoRandomized
+
 .PHONY: valgrind_check_0
 valgrind_check_0:
 	$(AM_V_GEN)export TEST_TMPDIR=$(TMPD);				\
@@ -688,6 +691,7 @@ valgrind_check_0:
 	}								\
 	  | $(prioritize_long_running_tests)				\
 	  | grep -E '$(tests-regexp)'					\
+	  | grep -E -v '$(valgrind-blacklist-regexp)'					\
 	  | build_tools/gnu_parallel -j$(J) --plain --joblog=LOG $$eta --gnu \
 	  '(if [[ "{}" == "./"* ]] ; then $(DRIVER) {}; else {}; fi) ' \
 	  '>& t/valgrind_log-{/}'
@@ -971,6 +975,9 @@ crc32c_test: util/crc32c_test.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
 slice_transform_test: util/slice_transform_test.o $(LIBOBJECTS) $(TESTHARNESS)
+	$(AM_LINK)
+
+db_basic_test: db/db_basic_test.o db/db_test_util.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
 db_test: db/db_test.o db/db_test_util.o $(LIBOBJECTS) $(TESTHARNESS)
