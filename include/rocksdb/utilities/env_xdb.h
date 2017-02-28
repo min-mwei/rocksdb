@@ -7,7 +7,6 @@
 #include "rocksdb/env.h"
 #include "rocksdb/status.h"
 
-#include "util/io_posix.h"
 #include "was/blob.h"
 #include "was/common.h"
 #include "was/queue.h"

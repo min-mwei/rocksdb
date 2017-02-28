@@ -35,7 +35,6 @@ Status err_to_status(int r) {
       return Status::IOError(Status::kNone);
     default:
       // FIXME :(
-      IOError("fixme", -1);
       assert(0 == "unrecognized error code");
       return Status::NotSupported(Status::kNone);
   }
