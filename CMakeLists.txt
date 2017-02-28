@@ -451,6 +451,7 @@ set(SOURCES
         utilities/col_buf_encoder.cc
         utilities/col_buf_decoder.cc
         utilities/column_aware_encoding_util.cc
+        utilities/env_xdb.cc
         $<TARGET_OBJECTS:build_version>)
 
 if(WIN32)

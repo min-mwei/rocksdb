@@ -10,6 +10,7 @@ set(USE_ZLIB_DEFAULT 0)          # ZLIB is disabled by default, enable with -DZL
 set(USE_XPRESS_DEFAULT 0)        # XPRESS is disabled by default, enable with -DXPRESS=1 cmake command line agrument
 set(USE_JEMALLOC_DEFAULT 0)      # JEMALLOC is disabled by default, enable with -DJEMALLOC=1 cmake command line agrument
 set(USE_JENONINIT_DEFAULT 1)     # Default is enabled do not call je_init/je_uninit as the newer versions do not have it disable with -DJENONINIT=0
+set(USE_WAS_DEFAULT 1)           # Default is enabled  -DUSE_WAS_DEFAULT=0
 
 #
 # This example assumes all the libraries locate in directories under THIRDPARTY_HOME environment variable
@@ -262,4 +263,47 @@ if (${USE_JEMALLOC} EQUAL 1)
 else ()
   set (ARTIFACT_SUFFIX "")
   message(STATUS "JEMALLOC library is disabled")
+endif ()
+
+# ================================================== WAS ==================================================
+#
+# Edit these 4 lines to define paths to WAS
+#
+set(WAS_HOME $ENV{THIRDPARTY_HOME}/WAS.Library)
+set(WAS_INCLUDE ${WAS_HOME}/inc/)
+set(WAS_LIB_DEBUG ${WAS_HOME}/bin/debug/amd64/wastorage.lib)
+set(WAS_LIB_RELEASE ${WAS_HOME}/bin/retail/amd64/wastorage.lib)
+
+#
+# Don't touch these lines
+#
+if (DEFINED WAS)
+  set(USE_WAS ${WAS})
+else ()
+  set(USE_WAS ${USE_WAS_DEFAULT})
+endif ()
+
+if (${USE_WAS} EQUAL 1)
+  message(STATUS "WAS library is enabled")
+  
+  if(DEFINED ENV{WAS_INCLUDE})
+    set(SNAPPY_INCLUDE $ENV{WAS_INCLUDE})
+  endif()
+  
+  if(DEFINED ENV{WAS_LIB_DEBUG})
+    set(WAS_LIB_DEBUG $ENV{WAS_LIB_DEBUG})
+  endif()
+
+  if(DEFINED ENV{WAS_LIB_RELEASE})
+    set(WAS_LIB_RELEASE $ENV{WAS_LIB_RELEASE})
+  endif()
+  
+  set(WAS_CXX_FLAGS -DSNAPPY)
+  set(WAS_LIBS debug ${WAS_LIB_DEBUG} optimized ${WAS_LIB_RELEASE})
+
+  add_definitions(${WAS_CXX_FLAGS})
+  include_directories(${WAS_INCLUDE})
+  set (THIRDPARTY_LIBS ${THIRDPARTY_LIBS} ${WAS_LIBS})
+else ()
+  message(STATUS "WAS library is disabled")
 endif ()
