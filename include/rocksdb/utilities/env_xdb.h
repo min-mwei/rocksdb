@@ -13,6 +13,8 @@
 #include "was/storage_account.h"
 #include "was/table.h"
 
+#undef DeleteFile
+
 namespace rocksdb {
 
 class XdbWritableFile;
@@ -53,7 +55,7 @@ class EnvXdb : public EnvWrapper {
   virtual Status GetChildren(const std::string& dir,
                              std::vector<std::string>* r) override;
 
-  virtual Status DeleteFile(const std::string& f);
+  Status DeleteFile(const std::string& f) override;
 
   virtual Status CreateDir(const std::string& d) override;
 
