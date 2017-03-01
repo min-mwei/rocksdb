@@ -273,7 +273,8 @@ set(WAS_HOME $ENV{THIRDPARTY_HOME}/WAS.Library)
 set(WAS_INCLUDE ${WAS_HOME}/inc/)
 set(WAS_LIB_DEBUG ${WAS_HOME}/bin/debug/amd64/wastorage.lib)
 set(WAS_LIB_RELEASE ${WAS_HOME}/bin/retail/amd64/wastorage.lib)
-
+set(WAS_CPPREST_LIB_DEBUG ${WAS_HOME}/bin/retail/amd64/cpprest140_2_9.lib)
+set(WAS_CPPREST_LIB_RELEASE ${WAS_HOME}/bin/retail/amd64/cpprest140_2_9.lib)
 #
 # Don't touch these lines
 #
@@ -299,7 +300,7 @@ if (${USE_WAS} EQUAL 1)
   endif()
   
   set(WAS_CXX_FLAGS -DSNAPPY)
-  set(WAS_LIBS debug ${WAS_LIB_DEBUG} optimized ${WAS_LIB_RELEASE})
+  set(WAS_LIBS debug ${WAS_LIB_DEBUG} ${WAS_CPPREST_LIB_DEBUG} optimized ${WAS_LIB_RELEASE} ${WAS_CPPREST_LIB_RELEASE})
 
   add_definitions(${WAS_CXX_FLAGS})
   include_directories(${WAS_INCLUDE})
