@@ -234,7 +234,7 @@ class XdbWritableFile : public WritableFile {
           src += left;
         } else {
           memcpy(&_buffer[_pageoffset], src, size);
-          _pageoffset += size;
+          _pageoffset += (int)size;
           size = 0;
           src += size;
         }
