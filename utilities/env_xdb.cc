@@ -23,19 +23,31 @@ static Logger* mylog = nullptr;
 
 #if defined(OS_WIN)
 
-inline std::string&& xdb_to_utf8string(std::string&& value) {
+static inline std::string&& xdb_to_utf8string(std::string&& value) {
   return std::move(value);
 }
 
-inline const std::string& xdb_to_utf8string(const std::string& value) {
+static inline const std::string& xdb_to_utf8string(const std::string& value) {
   return value;
 }
 
-inline utf16string to_utf16string(const std::string& value) {
+static inline std::string xdb_to_utf8string(const utf16string& value) {
+  return utility::conversions::to_utf8string(value);
+}
+
+static inline utf16string xdb_to_utf16string(const std::string& value) {
   return utility::conversions::to_utf16string(value);
 }
 
-inline utf16string xdb_utf8_to_utf16(const std::string& s) {
+static inline const utf16string& xdb_to_utf16string(const utf16string& value) {
+  return value;
+}
+
+static inline utf16string&& xdb_to_utf16string(utf16string&& value) {
+  return std::move(value);
+}
+
+static inline utf16string xdb_utf8_to_utf16(const std::string& s) {
   return utility::conversions::utf8_to_utf16(s);
 }
 
@@ -102,7 +114,8 @@ class XdbReadableFile : virtual public SequentialFile,
       Log(InfoLogLevel::DEBUG_LEVEL, mylog,
           "[xdb] XdbReadableFile opening file %s\n", page_blob.name().c_str());
       _page_blob.download_attributes();
-      std::string size = _page_blob.metadata()[xdb_size];
+      std::string size =
+          xdb_to_utf8string(_page_blob.metadata()[xdb_utf8_to_utf16(xdb_size)]);
       _size = size.empty() ? -1 : std::stoi(size);
     } catch (const azure::storage::storage_exception& e) {
       Log(InfoLogLevel::DEBUG_LEVEL, mylog,
@@ -136,7 +149,7 @@ class XdbReadableFile : virtual public SequentialFile,
     return XdbGetUniqueId(_page_blob, id, max_size);
   }
 
-  const char* Name() { return _page_blob.name().c_str(); }
+  const char* Name() { return xdb_to_utf8string(_page_blob.name()).c_str(); }
 
  private:
   Status ReadContents(uint64_t* origin, size_t n, Slice* result,
@@ -285,7 +298,8 @@ class XdbWritableFile : public WritableFile {
     try {
       if (_page_blob.exists()) {
         _page_blob.metadata().reserve(1);
-        _page_blob.metadata()[xdb_size] = std::to_string(CurrSize());
+        _page_blob.metadata()[xdb_to_utf16string(xdb_size)] =
+            xdb_to_utf16string(std::to_string(CurrSize()));
         _page_blob.upload_metadata();
       }
     } catch (const azure::storage::storage_exception& e) {
@@ -300,7 +314,7 @@ class XdbWritableFile : public WritableFile {
     return XdbGetUniqueId(_page_blob, id, max_size);
   }
 
-  const char* Name() { return _page_blob.name().c_str(); }
+  const char* Name() { return xdb_to_utf8string(_page_blob.name()).c_str(); }
 
  private:
   inline uint64_t CurrSize() const {
@@ -325,9 +339,10 @@ EnvXdb::EnvXdb(
   try {
     for (auto it = dbpathmap.begin(); it != dbpathmap.end(); ++it) {
       cloud_storage_account storage_account =
-          cloud_storage_account::parse(it->first);
+          cloud_storage_account::parse(xdb_to_utf16string(it->first));
       auto blob_client = storage_account.create_cloud_blob_client();
-      auto container = blob_client.get_container_reference(it->second);
+      auto container =
+          blob_client.get_container_reference(xdb_to_utf16string(it->second));
       container.create_if_not_exists();
       _containermap[it->second] = container;
     }
@@ -356,7 +371,8 @@ Status EnvXdb::NewWritableFile(const std::string& fname,
   if (isWAS(fname)) {
     std::string n = fname.substr(4);
     auto container = GetContainer(n);
-    cloud_page_blob page_blob = container.get_page_blob_reference(n);
+    cloud_page_blob page_blob =
+        container.get_page_blob_reference(xdb_to_utf16string(n));
     result->reset(new XdbWritableFile(page_blob));
     return Status::OK();
   }
@@ -369,7 +385,8 @@ Status EnvXdb::NewRandomAccessFile(const std::string& fname,
   if (isWAS(fname)) {
     std::string n = fname.substr(4);
     auto container = GetContainer(n);
-    cloud_page_blob page_blob = container.get_page_blob_reference(n);
+    cloud_page_blob page_blob =
+        container.get_page_blob_reference(xdb_to_utf16string(n));
     if (page_blob.exists()) {
       result->reset(new XdbReadableFile(page_blob));
       return Status::OK();
@@ -385,7 +402,8 @@ Status EnvXdb::NewSequentialFile(const std::string& fname,
   if (isWAS(fname)) {
     std::string n = fname.substr(4);
     auto container = GetContainer(n);
-    cloud_page_blob page_blob = container.get_page_blob_reference(n);
+    cloud_page_blob page_blob =
+        container.get_page_blob_reference(xdb_to_utf16string(n));
     if (page_blob.exists()) {
       result->reset(new XdbReadableFile(page_blob));
       return Status::OK();
@@ -415,7 +433,8 @@ Status EnvXdb::NewDirectory(const std::string& name,
     try {
       std::string n = name.substr(4);
       auto container = GetContainer(n);
-      cloud_page_blob page_blob = container.get_page_blob_reference(n);
+      cloud_page_blob page_blob =
+          container.get_page_blob_reference(xdb_to_utf16string(n));
       result->reset(new XdbDirectory(0));
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
@@ -442,8 +461,8 @@ Status EnvXdb::GetChildren(const std::string& dir,
       auto container = GetContainer(n);
       list_blob_item_iterator end;
       for (list_blob_item_iterator it = container.list_blobs(
-               n, false, blob_listing_details::none, 0, blob_request_options(),
-               operation_context());
+               xdb_to_utf16string(n), false, blob_listing_details::none, 0,
+               blob_request_options(), operation_context());
            it != end; it++) {
         if (!it->is_blob()) {
           list_blob_item_iterator bend;
@@ -453,9 +472,9 @@ Status EnvXdb::GetChildren(const std::string& dir,
           for (list_blob_item_iterator bit = it->as_directory().list_blobs();
                bit != bend; bit++) {
             if (bit->is_blob()) {
-              result->push_back(lastname(bit->as_blob().name()));
+              result->push_back(lastname(xdb_to_utf8string(bit->as_blob().name())));
             } else {
-              result->push_back(firstname(bit->as_directory().prefix()));
+              result->push_back(firstname(xdb_to_utf8string(bit->as_directory().prefix())));
             }
           }
         }
@@ -482,9 +501,9 @@ int EnvXdb::WASRename(const std::string& source, const std::string& target) {
     std::string src(source);
     fixname(src);
     auto container = GetContainer(src);
-    cloud_page_blob src_blob = container.get_page_blob_reference(src);
+    cloud_page_blob src_blob = container.get_page_blob_reference(xdb_to_utf16string(src));
     if (!src_blob.exists()) return 0;
-    cloud_page_blob target_blob = container.get_page_blob_reference(target);
+    cloud_page_blob target_blob = container.get_page_blob_reference(xdb_to_utf16string(target));
     target_blob.create(src_blob.properties().size());
     try {
       utility::string_t copy_id = target_blob.start_copy(src_blob);
@@ -504,19 +523,19 @@ int EnvXdb::WASRename(const std::string& source, const std::string& target) {
       utility::string_t state_description;
       switch (state.status()) {
         case copy_status::aborted:
-          state_description = "aborted";
+          state_description = xdb_to_utf16string("aborted");
           break;
         case copy_status::failed:
-          state_description = "failed";
+          state_description = xdb_to_utf16string("failed");
           break;
         case copy_status::invalid:
-          state_description = "invalid";
+          state_description = xdb_to_utf16string("invalid");
           break;
         case copy_status::pending:
-          state_description = "pending";
+          state_description = xdb_to_utf16string("pending");
           break;
         case copy_status::success:
-          state_description = "success";
+          state_description = xdb_to_utf16string("success");
           break;
       }
       Log(InfoLogLevel::DEBUG_LEVEL, mylog,
@@ -543,13 +562,13 @@ Status EnvXdb::FileExists(const std::string& fname) {
     try {
       std::string name = fname.substr(4);
       auto container = GetContainer(name);
-      cloud_page_blob page_blob = container.get_page_blob_reference(name);
+      cloud_page_blob page_blob = container.get_page_blob_reference(xdb_to_utf16string(name));
       if (page_blob.exists()) {
         return Status::OK();
       }
-      cloud_blob_directory dir_blob = container.get_directory_reference(name);
+      cloud_blob_directory dir_blob = container.get_directory_reference(xdb_to_utf16string(name));
       if (dir_blob.is_valid()) {
-        cloud_page_blob mblob = dir_blob.get_page_blob_reference(xdb_magic);
+        cloud_page_blob mblob = dir_blob.get_page_blob_reference(xdb_to_utf16string(xdb_magic));
         if (mblob.exists()) return Status::OK();
       }
     } catch (const azure::storage::storage_exception& e) {
@@ -567,9 +586,10 @@ Status EnvXdb::GetFileSize(const std::string& f, uint64_t* s) {
     try {
       std::string n = f.substr(4);
       auto container = GetContainer(n);
-      cloud_page_blob page_blob = container.get_page_blob_reference(n);
+      cloud_page_blob page_blob = container.get_page_blob_reference(xdb_to_utf16string(n));
       page_blob.download_attributes();
-      std::string size = page_blob.metadata()[xdb_size];
+      std::string size =
+          xdb_to_utf8string(page_blob.metadata()[xdb_utf8_to_utf16(xdb_size)]);
       *s = size.empty() ? -1 : std::stoi(size);
     } catch (const azure::storage::storage_exception& e) {
       Log(InfoLogLevel::DEBUG_LEVEL, mylog,
@@ -584,7 +604,7 @@ Status EnvXdb::GetFileSize(const std::string& f, uint64_t* s) {
 Status EnvXdb::DeleteBlob(const std::string& f) {
   try {
     auto container = GetContainer(f);
-    cloud_page_blob page_blob = container.get_page_blob_reference(f);
+    cloud_page_blob page_blob = container.get_page_blob_reference(xdb_to_utf16string(f));
     page_blob.delete_blob();
     return Status::OK();
   } catch (const azure::storage::storage_exception& e) {
@@ -614,8 +634,8 @@ Status EnvXdb::CreateDir(const std::string& d) {
     try {
       std::string name = d.substr(4);
       auto container = GetContainer(name);
-      cloud_blob_directory dir_blob = container.get_directory_reference(name);
-      cloud_page_blob page_blob = dir_blob.get_page_blob_reference(xdb_magic);
+      cloud_blob_directory dir_blob = container.get_directory_reference(xdb_to_utf16string(name));
+      cloud_page_blob page_blob = dir_blob.get_page_blob_reference(xdb_to_utf16string(xdb_magic));
       if (page_blob.exists()) return Status::IOError();
       page_blob.create(512);
       return Status::OK();
@@ -634,8 +654,8 @@ Status EnvXdb::CreateDirIfMissing(const std::string& d) {
     try {
       std::string name = d.substr(4);
       auto container = GetContainer(name);
-      cloud_blob_directory dir_blob = container.get_directory_reference(name);
-      cloud_page_blob page_blob = dir_blob.get_page_blob_reference(xdb_magic);
+      cloud_blob_directory dir_blob = container.get_directory_reference(xdb_to_utf16string(name));
+      cloud_page_blob page_blob = dir_blob.get_page_blob_reference(xdb_to_utf16string(xdb_magic));
       if (page_blob.exists()) return Status::OK();
       page_blob.create(512);
       return Status::OK();
@@ -653,9 +673,9 @@ Status EnvXdb::DeleteDir(const std::string& d) {
   if (isWAS(d)) {
     std::string name = d.substr(4);
     auto container = GetContainer(name);
-    cloud_blob_directory dir_blob = container.get_directory_reference(name);
+    cloud_blob_directory dir_blob = container.get_directory_reference(xdb_to_utf16string(name));
     try {
-      cloud_page_blob mblob = dir_blob.get_page_blob_reference(xdb_magic);
+      cloud_page_blob mblob = dir_blob.get_page_blob_reference(xdb_to_utf16string(xdb_magic));
       mblob.delete_blob();
     } catch (const azure::storage::storage_exception& e) {
       Log(InfoLogLevel::DEBUG_LEVEL, mylog,
@@ -773,7 +793,7 @@ Status EnvXdb::NewLogger(const std::string& fname,
   if (isWAS(fname)) {
     std::string n = fname.substr(4);
     auto container = GetContainer(n);
-    cloud_page_blob page_blob = container.get_page_blob_reference(n);
+    cloud_page_blob page_blob = container.get_page_blob_reference(xdb_to_utf16string(n));
     XdbWritableFile* f = new XdbWritableFile(page_blob);
     if (f == nullptr) {
       *result = nullptr;
