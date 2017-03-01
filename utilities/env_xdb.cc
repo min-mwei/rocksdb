@@ -4,6 +4,7 @@
 #include <ctime>
 #include <iostream>
 #include <thread>
+#include "cpprest/asyncrt_utils.h"
 #include "cpprest/filestream.h"
 #include "was/blob.h"
 #include "was/common.h"
@@ -20,6 +21,33 @@ const char* xdb_size = "__xdb__size";
 const std::string xdb_magic = "__xdb__";
 static Logger* mylog = nullptr;
 
+#if defined(OS_WIN)
+
+inline std::string&& xdb_to_utf8string(std::string&& value) {
+  return std::move(value);
+}
+
+inline const std::string& xdb_to_utf8string(const std::string& value) {
+  return value;
+}
+
+inline utf16string to_utf16string(const std::string& value) {
+  return utility::conversions::to_utf16string(value);
+}
+
+inline utf16string xdb_utf8_to_utf16(const std::string& s) {
+  return utility::conversions::utf8_to_utf16(s);
+}
+
+#else
+
+#define xdb_to_utf8string(x) (x)
+
+#define xdb_to_utf16string(x) (x)
+
+#define xdb_utf8_to_utf16(x) (x)
+
+#endif
 Status err_to_status(int r) {
   switch (r) {
     case 0:
@@ -59,7 +87,7 @@ std::string prefix(const std::string& name) {
 
 static size_t XdbGetUniqueId(const cloud_page_blob& page_blob, char* id,
                              size_t max_size) {
-  const std::string path = page_blob.uri().path();
+  const std::string path = xdb_to_utf8string(page_blob.uri().path());
   size_t len = path.size() > max_size ? max_size : path.size();
   memcpy(id, path.c_str(), len);
   return len;
@@ -730,8 +758,12 @@ class XdbLogger : public Logger {
 size_t EnvXdb::GetUniqueId(char* id, size_t max_size) { return 0; }
 
 static uint64_t gettid() {
+#if defined(OS_WIN)
+  return GetCurrentThreadId();
+#else
   assert(sizeof(pthread_t) <= sizeof(uint64_t));
   return (uint64_t)pthread_self();
+#endif
 }
 
 uint64_t EnvXdb::GetThreadID() const { return gettid(); }
