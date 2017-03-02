@@ -62,15 +62,13 @@ class Rand {
 
 std::string createKey(uint64_t key, int ts) {
   std::string result = std::to_string(key).append(std::to_string(ts));
-  std::cout << "key: " << result << std::endl;
   return result;
 }
 
 std::string createValue(Rand& rnd) {
-  char ret[300];
-  rnd.randBytes(ret, 300);
-  std::string result(ret, 300);
-  std::cout << "value: " << result << std::endl;
+  char ret[500];
+  rnd.randBytes(ret, 500);
+  std::string result(ret, 500);
   return result;
 }
 
@@ -81,7 +79,7 @@ void batchInsert(DB* db, int size, Rand& rnd) {
   for (int k = 0; k < size; k++) {
     std::cout << "batch :" << k << std::endl;
     WriteBatch batch;
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 5000; i++) {
       auto k = createKey(rnd.randLong(), i);
       auto v = createValue(rnd);
       batch.Put(k, v);
@@ -121,7 +119,7 @@ int main(int argc, char* argv[]) {
   std::string container = argv[2];
   dbpathmap.push_back(std::make_pair(conn, container));
   NewXdbEnv(&env, dbpathmap);
-  //options.env = env;
+  options.env = env;
   // Optimize RocksDB. This is the easiest way to get RocksDB to perform well
   options.IncreaseParallelism();
   options.OptimizeLevelStyleCompaction();
@@ -130,14 +128,11 @@ int main(int argc, char* argv[]) {
 
   Status status;
   uint64_t cache_size = 1024 * 1024 * 1024;
-  std::cout<<"****000" << argv[4] << std::endl;
   std::string cache_path = argv[4];
   auto log = std::make_shared<ConsoleLogger>();
   std::shared_ptr<PersistentCache> cache;
-  std::cout<<"****001xxx" << std::endl;
   status = NewPersistentCache(Env::Default(), cache_path,
                               /*size=*/cache_size, log, true, &cache);
-  std::cout<<"****001" << std::endl;
   assert(status.ok());
   BlockBasedTableOptions table_options;
   table_options.persistent_cache = cache;
@@ -149,15 +144,12 @@ int main(int argc, char* argv[]) {
   // bbt_opts.block_cache = cache;
   options.table_factory.reset(NewBlockBasedTableFactory(table_options));
   // open DB
-  std::cout<<"****1" << std::endl;
   Status s = DB::Open(options, argv[3], &db);
   assert(s.ok());
-
-  std::cout<<"****3" << std::endl;
   Rand rnd;
-  batchInsert(db, 5, rnd);
+  batchInsert(db, 100, rnd);
   db->Flush(FlushOptions());
-  read(db);
+  //read(db);
   delete db;
 
   return 0;
