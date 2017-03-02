@@ -89,7 +89,7 @@ void batchInsert(DB* db, int size, Rand& rnd) {
       std::cout << "batch insert:" << s.ToString() << std::endl;
     }
     assert(s.ok());
-    db->Flush(FlushOptions());
+    //db->Flush(FlushOptions());
   }
 }
 
