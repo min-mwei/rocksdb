@@ -13,6 +13,8 @@
 #include <iostream>
 #include <memory>
 #include <random>
+#include <algorithm>
+#include <vector>
 #include <thread>
 #include "port/port.h"
 #include "rocksdb/db.h"
