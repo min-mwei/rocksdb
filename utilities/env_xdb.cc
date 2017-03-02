@@ -214,7 +214,7 @@ class XdbWritableFile : public WritableFile {
       : _page_blob(page_blob), _pageindex(0), _pageoffset(0) {
     Log(InfoLogLevel::DEBUG_LEVEL, mylog,
         "[xdb] XdbWritableFile opening file %s\n", page_blob.name().c_str());
-    _page_blob.create(16 * 1024 * 1024);
+    _page_blob.create(256 * 1024 * 1024);
   }
 
   ~XdbWritableFile() {
@@ -328,7 +328,7 @@ class XdbWritableFile : public WritableFile {
   inline void Expand() { _page_blob.resize(Capacity() * 2); }
 
  private:
-  const static int _page_size = 1024 * 64;
+  const static int _page_size = 1024 * 1024;
   cloud_page_blob _page_blob;
   int _pageindex;
   int _pageoffset;
