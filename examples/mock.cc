@@ -147,7 +147,7 @@ int main(int argc, char* argv[]) {
   Status s = DB::Open(options, argv[3], &db);
   assert(s.ok());
   Rand rnd;
-  batchInsert(db, 100, rnd);
+  batchInsert(db, 3, rnd);
   db->Flush(FlushOptions());
   //read(db);
   delete db;

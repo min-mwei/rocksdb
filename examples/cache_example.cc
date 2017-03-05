@@ -163,9 +163,13 @@ int main(int argc, char* argv[]) {
   options.table_factory.reset(NewBlockBasedTableFactory(table_options));
   // open DB
   Status s = DB::Open(options, argv[3], &db);
+  if(!s.ok())
+    std::cout<< s.ToString() << std::endl;
   assert(s.ok());
 
+  std::cout<<"****insert"<<std::endl;
   batchInsert(db, 5);
+  std::cout<<"****flush"<<std::endl;
   db->Flush(FlushOptions());
   read(db);
   // std::cout << "pcache opts: " << cache->GetPrintableOptions() << std::endl;

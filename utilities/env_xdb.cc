@@ -142,7 +142,6 @@ class XdbReadableFile : virtual public SequentialFile,
   }
 
   Status Skip(uint64_t n) {
-    std::cout << "Skip:" << n << std::endl;
     _offset += n;
     return Status::OK();
   }
@@ -211,10 +210,10 @@ class XdbReadableFile : virtual public SequentialFile,
 class XdbWritableFile : public WritableFile {
  public:
   XdbWritableFile(cloud_page_blob& page_blob)
-      : _page_blob(page_blob), _pageindex(0), _pageoffset(0) {
+      : _page_blob(page_blob), _pageindex(0), _bufoffset(0) {
     Log(InfoLogLevel::DEBUG_LEVEL, mylog,
         "[xdb] XdbWritableFile opening file %s\n", page_blob.name().c_str());
-    _page_blob.create(256 * 1024 * 1024);
+    _page_blob.create(4 * 1024 * 1024);
   }
 
   ~XdbWritableFile() {
@@ -224,32 +223,55 @@ class XdbWritableFile : public WritableFile {
 
   virtual Status Append(const char* src, size_t size) {
     try {
-      if (size + CurrSize() >= Capacity()) {
+      size_t cap = _buf_size - _bufoffset;
+      char* target = _buffer + _bufoffset;
+      size_t remain = size;
+      while (remain > 0) {
+        if (cap >= remain) {
+          memcpy(target, src, remain);
+          _bufoffset += remain;
+          break;
+        } else {
+          FlushBuf();
+          cap = _buf_size - _bufoffset;
+          target = _buffer + _bufoffset;
+          size_t len = remain > cap ? cap : remain;
+          memcpy(target, src, len);
+          target += len;
+          _bufoffset += len;
+          src += len;
+          remain -= len;
+          cap = _buf_size - _bufoffset;
+        }
+      }
+      return Status::OK();
+    } catch (const azure::storage::storage_exception& e) {
+      Log(InfoLogLevel::DEBUG_LEVEL, mylog,
+          "[xdb] XdbWritableFile Append file %s with exception %s\n",
+          _page_blob.name().c_str(), e.what());
+    }
+    return Status::IOError();
+  }
+
+  virtual Status Flush() { return Status::OK(); }
+
+  Status FlushBuf() {
+    try {
+      if (_buf_size + CurrSize() >= Capacity()) {
         Expand();
       }
-      while (size > 0) {
-        size_t left = _page_size - _pageoffset;
-        if (size > left) {
-          memcpy(&_buffer[_pageoffset], src, left);
-          _pageoffset = 0;
-          size -= left;
-          src += left;
-        } else {
-          memcpy(&_buffer[_pageoffset], src, size);
-          _pageoffset += (int)size;
-          size = 0;
-          src += size;
-        }
-        std::vector<char> buffer;
-        buffer.assign(&_buffer[0], &_buffer[_page_size]);
-        concurrency::streams::istream page_stream =
-            concurrency::streams::bytestream::open_istream(buffer);
-        _page_blob.upload_pages(page_stream, _pageindex * _page_size,
-                                utility::string_t(U("")));
-        if (size != 0 && _pageoffset == 0) _pageindex++;
-      }
-      return err_to_status(0);
-
+      std::vector<char> buffer;
+      int len = ((_bufoffset >> 9) + 1) << 9;
+      buffer.assign(&_buffer[0], &_buffer[len]);
+      concurrency::streams::istream page_stream =
+          concurrency::streams::bytestream::open_istream(buffer);
+      _page_blob.upload_pages(page_stream, _pageindex * _page_size,
+                              utility::string_t(U("")));
+      _pageindex += _bufoffset / _page_size;
+      len = _bufoffset % 512;
+      memcpy(_buffer, _buffer + ((_bufoffset >> 9) << 9), len);
+      _bufoffset = len;
+      return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
       Log(InfoLogLevel::DEBUG_LEVEL, mylog,
           "[xdb] XdbWritableFile Append file %s with exception %s\n",
@@ -277,6 +299,7 @@ class XdbWritableFile : public WritableFile {
   Status Truncate(uint64_t size) {
     try {
       if (_page_blob.exists()) {
+        Sync();
         _page_blob.resize(((size >> 9) + 1) << 9);
       }
     } catch (const azure::storage::storage_exception& e) {
@@ -290,15 +313,13 @@ class XdbWritableFile : public WritableFile {
   Status Close() {
     Log(InfoLogLevel::DEBUG_LEVEL, mylog,
         "[xdb] XdbWritableFile closing file %s\n", _page_blob.name().c_str());
-    Sync();
     return err_to_status(0);
   }
-
-  Status Flush() { return err_to_status(0); }
 
   Status Sync() {
     try {
       if (_page_blob.exists()) {
+        FlushBuf();
         _page_blob.metadata().reserve(1);
         _page_blob.metadata()[xdb_size] =
             xdb_to_utf16string(std::to_string(CurrSize()));
@@ -320,7 +341,7 @@ class XdbWritableFile : public WritableFile {
 
  private:
   inline uint64_t CurrSize() const {
-    return _pageindex * _page_size + _pageoffset;
+    return _pageindex * _page_size + _bufoffset;
   }
 
   inline uint64_t Capacity() const { return _page_blob.properties().size(); }
@@ -328,11 +349,12 @@ class XdbWritableFile : public WritableFile {
   inline void Expand() { _page_blob.resize(Capacity() * 2); }
 
  private:
-  const static int _page_size = 1024 * 1024;
+  const static int _page_size = 512;
+  const static int _buf_size = 1024 * _page_size;
   cloud_page_blob _page_blob;
-  int _pageindex;
-  int _pageoffset;
-  char _buffer[_page_size];
+  uint64_t _pageindex;
+  int _bufoffset;
+  char _buffer[_buf_size];
 };
 
 EnvXdb::EnvXdb(
