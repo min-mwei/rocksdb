@@ -362,7 +362,7 @@ class XdbWritableFile : public WritableFile {
   cloud_page_blob _page_blob;
   uint64_t _pageindex;
   int _bufoffset;
-  char _buffer[_buf_size];
+  char _buffer[_buf_size + 1024];
 };
 
 EnvXdb::EnvXdb(
