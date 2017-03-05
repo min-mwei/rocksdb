@@ -214,6 +214,9 @@ class XdbWritableFile : public WritableFile {
     Log(InfoLogLevel::DEBUG_LEVEL, mylog,
         "[xdb] XdbWritableFile opening file %s\n", page_blob.name().c_str());
     _page_blob.create(4 * 1024 * 1024);
+    std::string name = xdb_to_utf8string(_page_blob.name());
+    islog_ =
+        name.size() >= 3 && !strncmp(name.c_str() + name.size() - 3, "LOG", 3);
   }
 
   ~XdbWritableFile() {
@@ -244,6 +247,7 @@ class XdbWritableFile : public WritableFile {
           cap = _buf_size - _bufoffset;
         }
       }
+      if (islog_) FlushBuf();
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
       Log(InfoLogLevel::DEBUG_LEVEL, mylog,
@@ -351,6 +355,7 @@ class XdbWritableFile : public WritableFile {
  private:
   const static int _page_size = 512;
   const static int _buf_size = 1024 * _page_size;
+  bool islog_;
   cloud_page_blob _page_blob;
   uint64_t _pageindex;
   int _bufoffset;
