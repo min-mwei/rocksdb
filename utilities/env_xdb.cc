@@ -261,8 +261,8 @@ class XdbWritableFile : public WritableFile {
 
   Status FlushBuf() {
     try {
-      if (_buf_size + CurrSize() >= Capacity()) {
-        Expand(_buf_size + CurrSize());
+      if (CurrSize() >= Capacity()) {
+        Expand(CurrSize());
       }
       std::vector<char> buffer;
       int len = ((_bufoffset >> 9) + 1) << 9;
@@ -350,7 +350,10 @@ class XdbWritableFile : public WritableFile {
 
   inline uint64_t Capacity() const { return _page_blob.properties().size(); }
 
-  inline void Expand(uint64_t target) { _page_blob.resize(target * 2); }
+  inline void Expand(uint64_t target) {
+    uint64_t size = ((target >> 9) + 1) << 9;
+    _page_blob.resize(size * 2);
+  }
 
  private:
   const static int _page_size = 512;
