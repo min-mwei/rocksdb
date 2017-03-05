@@ -265,16 +265,19 @@ class XdbWritableFile : public WritableFile {
         Expand(CurrSize());
       }
       std::vector<char> buffer;
-      int len = ((_bufoffset >> 9) + 1) << 9;
+      int numpages = _bufoffset / _page_size;
+      int remain = _bufoffset % _page_size;
+      int len = remain == 0? _bufoffset : _bufoffset + (_page_size - remain);
       buffer.assign(&_buffer[0], &_buffer[len]);
       concurrency::streams::istream page_stream =
           concurrency::streams::bytestream::open_istream(buffer);
       _page_blob.upload_pages(page_stream, _pageindex * _page_size,
                               utility::string_t(U("")));
-      _pageindex += _bufoffset / _page_size;
-      len = _bufoffset % 512;
-      memcpy(_buffer, _buffer + ((_bufoffset >> 9) << 9), len);
-      _bufoffset = len;
+      _pageindex += numpages;
+      if(remain > 0) {
+        memcpy(_buffer, _buffer + (numpages * _page_size), remain);
+      }
+      _bufoffset = remain;
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
       Log(InfoLogLevel::DEBUG_LEVEL, mylog,
