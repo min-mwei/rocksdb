@@ -234,11 +234,11 @@ class XdbWritableFile : public WritableFile {
         memcpy(target, src, len);
         target += len;
         _bufoffset += len;
-        _size += len;
         src += len;
-        if (islog_ || len == 0) FlushBuf();
+        if (islog_ || cap < _page_size) FlushBuf();
         remain -= len;
       }
+      _size += size;
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
       Log(InfoLogLevel::DEBUG_LEVEL, mylog,
