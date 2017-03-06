@@ -27,7 +27,7 @@
 using namespace rocksdb;
 using random_bytes_engine =
     std::independent_bits_engine<std::default_random_engine, CHAR_BIT,
-                                 unsigned char>;
+                                 unsigned int>;
 
 class ConsoleLogger : public Logger {
  public:
