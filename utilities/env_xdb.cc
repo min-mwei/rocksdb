@@ -210,7 +210,7 @@ class XdbReadableFile : virtual public SequentialFile,
 class XdbWritableFile : public WritableFile {
  public:
   XdbWritableFile(cloud_page_blob& page_blob)
-    : _page_blob(page_blob), _bufoffset(0), _pageindex(0), _size(0) {
+      : _page_blob(page_blob), _bufoffset(0), _pageindex(0), _size(0) {
     Log(InfoLogLevel::DEBUG_LEVEL, mylog,
         "[xdb] XdbWritableFile opening file %s\n", page_blob.name().c_str());
     _page_blob.create(4 * 1024 * 1024);
@@ -265,7 +265,7 @@ class XdbWritableFile : public WritableFile {
       _page_blob.upload_pages(page_stream, _pageindex * _page_size,
                               utility::string_t(U("")));
       if (remain > 0) {
-        memcpy(_buffer, _buffer + len - _page_size, remain);
+        memcpy(_buffer, _buffer + numpages * _page_size, remain);
       }
       _bufoffset = remain;
       _pageindex += numpages;
