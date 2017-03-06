@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
   options.write_buffer_size = (uint64_t)(4.0 * 1024 * 1024 * 1024);
   options.max_bytes_for_level_base = (uint64_t)(4.0 * 1024 * 1024 * 1024);
   options.level0_file_num_compaction_trigger = 10;
-  options.level0_slowdown_writes_trigger = 100;
+  options.level0_slowdown_writes_trigger = 120;
   options.min_write_buffer_number_to_merge = 8;
   options.max_write_buffer_number = 16;
   options.target_file_size_base = 512 * 1024 * 1024;
