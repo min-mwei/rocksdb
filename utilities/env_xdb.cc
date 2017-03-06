@@ -228,7 +228,7 @@ class XdbWritableFile : public WritableFile {
       while (remain > 0) {
         size_t cap = _buf_size - _bufoffset;
         char* target = _buffer + _bufoffset;
-        size_t len = remain > cap ? cap : remain;
+        int len = (int)(remain > cap ? cap : remain);
         memcpy(target, src, len);
         target += len;
         _bufoffset += len;
