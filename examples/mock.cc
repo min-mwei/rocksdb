@@ -84,11 +84,16 @@ void batchInsert(DB* db, int size, Rand& rnd) {
       auto v = createValue(rnd);
       batch.Put(k, v);
     }
-    s = db->Write(WriteOptions(), &batch);
-    if (!s.ok()) {
-      std::cout << "batch insert:" << s.ToString() << std::endl;
+    int i = 3;
+    while (i-- > 0) {
+      s = db->Write(WriteOptions(), &batch);
+      if(s.ok())
+        break;
+      else {
+        std::cout << "batch insert:" << s.ToString() << std::endl;
+      }
     }
-    assert(s.ok());
+    //assert(s.ok());
     // db->Flush(FlushOptions());
   }
 }
@@ -123,7 +128,6 @@ int main(int argc, char* argv[]) {
   // Optimize RocksDB. This is the easiest way to get RocksDB to perform well
   options.IncreaseParallelism();
   // options.OptimizeLevelStyleCompaction();
-  options.OptimizeLevelStyleCompaction();
   options.compaction_style = kCompactionStyleUniversal;
   options.num_levels = 4;
   options.write_buffer_size = (uint64_t)(4.0 * 1024 * 1024 * 1024);
@@ -164,7 +168,7 @@ int main(int argc, char* argv[]) {
   Status s = DB::Open(options, argv[3], &db);
   assert(s.ok());
   Rand rnd;
-  batchInsert(db, 6000, rnd);
+  batchInsert(db, 20000, rnd);
   std::cout << "flushing.." << std::endl;
   db->Flush(FlushOptions());
   // read(db);
