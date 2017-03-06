@@ -215,8 +215,6 @@ class XdbWritableFile : public WritableFile {
         "[xdb] XdbWritableFile opening file %s\n", page_blob.name().c_str());
     _page_blob.create(4 * 1024 * 1024);
     std::string name = xdb_to_utf8string(_page_blob.name());
-    islog_ =
-        name.size() >= 3 && !strncmp(name.c_str() + name.size() - 3, "LOG", 3);
   }
 
   ~XdbWritableFile() {
@@ -236,7 +234,7 @@ class XdbWritableFile : public WritableFile {
         _bufoffset += len;
         src += len;
         _size += len;
-        if (islog_ || cap < _page_size) FlushBuf();
+        if (cap < _page_size) Flush();
         remain -= len;
       }
       return Status::OK();
@@ -248,9 +246,7 @@ class XdbWritableFile : public WritableFile {
     return Status::IOError();
   }
 
-  virtual Status Flush() { return Status::OK(); }
-
-  Status FlushBuf() {
+  virtual Status Flush() {
     try {
       if (CurrSize() >= Capacity()) {
         Expand(CurrSize());
@@ -317,7 +313,7 @@ class XdbWritableFile : public WritableFile {
   Status Sync() {
     try {
       if (_page_blob.exists()) {
-        FlushBuf();
+        Flush();
         _page_blob.metadata().reserve(1);
         _page_blob.metadata()[xdb_size] =
             xdb_to_utf16string(std::to_string(CurrSize()));
@@ -350,7 +346,6 @@ class XdbWritableFile : public WritableFile {
  private:
   const static int _page_size = 512;
   const static int _buf_size = 1024 * _page_size;
-  bool islog_;
   cloud_page_blob _page_blob;
   int _bufoffset;
   uint64_t _pageindex;
