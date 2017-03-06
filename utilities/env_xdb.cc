@@ -236,7 +236,7 @@ class XdbWritableFile : public WritableFile {
         _bufoffset += len;
         src += len;
         _size += len;
-        if (islog_ || len == 0) FlushBuf();
+        if (islog_ || cap < _page_size) FlushBuf();
         remain -= len;
       }
       return Status::OK();
