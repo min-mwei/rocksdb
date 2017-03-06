@@ -235,10 +235,10 @@ class XdbWritableFile : public WritableFile {
         target += len;
         _bufoffset += len;
         src += len;
-        if (islog_ || cap < _page_size) FlushBuf();
+        _size += len;
+        if (islog_ || len == 0) FlushBuf();
         remain -= len;
       }
-      _size += size;
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
       Log(InfoLogLevel::DEBUG_LEVEL, mylog,
