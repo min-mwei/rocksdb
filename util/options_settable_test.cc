@@ -158,7 +158,7 @@ TEST_F(OptionsSettableTest, BlockBasedTableOptionsAllFieldsSettable) {
       "index_per_partition=4;"
       "index_block_restart_interval=4;"
       "filter_policy=bloomfilter:4:true;whole_key_filtering=1;"
-      "skip_table_builder_flush=1;format_version=1;"
+      "format_version=1;"
       "hash_index_allow_collision=false;"
       "verify_compression=true;read_amp_bytes_per_bit=0",
       new_bbto));
@@ -370,7 +370,6 @@ TEST_F(OptionsSettableTest, ColumnFamilyOptionsAllFieldsSettable) {
   // Following options are not settable through
   // GetColumnFamilyOptionsFromString():
   options->rate_limit_delay_max_milliseconds = 33;
-  options->compaction_pri = CompactionPri::kOldestSmallestSeqFirst;
   options->compaction_options_universal = CompactionOptionsUniversal();
   options->compression_opts = CompressionOptions();
   options->hard_rate_limit = 0;
@@ -428,6 +427,7 @@ TEST_F(OptionsSettableTest, ColumnFamilyOptionsAllFieldsSettable) {
       "level_compaction_dynamic_level_bytes=false;"
       "inplace_update_support=false;"
       "compaction_style=kCompactionStyleFIFO;"
+      "compaction_pri=kMinOverlappingRatio;"
       "purge_redundant_kvs_while_flush=true;"
       "hard_pending_compaction_bytes_limit=0;"
       "disable_auto_compactions=false;"

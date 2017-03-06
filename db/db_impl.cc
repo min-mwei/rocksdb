@@ -148,6 +148,7 @@ DBOptions SanitizeOptions(const std::string& dbname, const DBOptions& src) {
       result.info_log = nullptr;
     }
   }
+
   if (!result.write_buffer_manager) {
     result.write_buffer_manager.reset(
         new WriteBufferManager(result.db_write_buffer_size));
@@ -194,6 +195,10 @@ DBOptions SanitizeOptions(const std::string& dbname, const DBOptions& src) {
 
   if (result.db_paths.size() == 0) {
     result.db_paths.emplace_back(dbname, std::numeric_limits<uint64_t>::max());
+  }
+
+  if (result.use_direct_reads && result.compaction_readahead_size == 0) {
+    result.compaction_readahead_size = 1024 * 1024 * 2;
   }
 
   if (result.compaction_readahead_size > 0) {

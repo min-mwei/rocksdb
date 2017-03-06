@@ -77,6 +77,7 @@ TEST_F(OptionsTest, GetOptionsFromMapTest) {
       {"arena_block_size", "22"},
       {"disable_auto_compactions", "true"},
       {"compaction_style", "kCompactionStyleLevel"},
+      {"compaction_pri", "kOldestSmallestSeqFirst"},
       {"verify_checksums_in_compaction", "false"},
       {"compaction_options_fifo", "23"},
       {"max_sequential_skip_in_iterations", "24"},
@@ -174,6 +175,7 @@ TEST_F(OptionsTest, GetOptionsFromMapTest) {
   ASSERT_EQ(new_cf_opt.arena_block_size, 22U);
   ASSERT_EQ(new_cf_opt.disable_auto_compactions, true);
   ASSERT_EQ(new_cf_opt.compaction_style, kCompactionStyleLevel);
+  ASSERT_EQ(new_cf_opt.compaction_pri, kOldestSmallestSeqFirst);
   ASSERT_EQ(new_cf_opt.compaction_options_fifo.max_table_files_size,
             static_cast<uint64_t>(23));
   ASSERT_EQ(new_cf_opt.max_sequential_skip_in_iterations,
@@ -435,8 +437,7 @@ TEST_F(OptionsTest, GetBlockBasedTableOptionsFromString) {
             "checksum=kxxHash;hash_index_allow_collision=1;no_block_cache=1;"
             "block_cache=1M;block_cache_compressed=1k;block_size=1024;"
             "block_size_deviation=8;block_restart_interval=4;"
-            "filter_policy=bloomfilter:4:true;whole_key_filtering=1;"
-            "skip_table_builder_flush=1",
+            "filter_policy=bloomfilter:4:true;whole_key_filtering=1;",
             &new_opt));
   ASSERT_TRUE(new_opt.cache_index_and_filter_blocks);
   ASSERT_EQ(new_opt.index_type, BlockBasedTableOptions::kHashSearch);
@@ -451,7 +452,6 @@ TEST_F(OptionsTest, GetBlockBasedTableOptionsFromString) {
   ASSERT_EQ(new_opt.block_size_deviation, 8);
   ASSERT_EQ(new_opt.block_restart_interval, 4);
   ASSERT_TRUE(new_opt.filter_policy != nullptr);
-  ASSERT_TRUE(new_opt.skip_table_builder_flush);
 
   // unknown option
   ASSERT_NOK(GetBlockBasedTableOptionsFromString(table_opt,

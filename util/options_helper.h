@@ -106,6 +106,7 @@ enum class OptionType {
   kString,
   kDouble,
   kCompactionStyle,
+  kCompactionPri,
   kSliceTransform,
   kCompressionType,
   kVectorCompressionType,
@@ -581,8 +582,10 @@ static std::unordered_map<std::string, OptionTypeInfo> cf_options_type_info = {
       OptionType::kMergeOperator, OptionVerificationType::kByName, false, 0}},
     {"compaction_style",
      {offset_of(&ColumnFamilyOptions::compaction_style),
-      OptionType::kCompactionStyle, OptionVerificationType::kNormal, false,
-      0}}};
+      OptionType::kCompactionStyle, OptionVerificationType::kNormal, false, 0}},
+    {"compaction_pri",
+     {offset_of(&ColumnFamilyOptions::compaction_pri),
+      OptionType::kCompactionPri, OptionVerificationType::kNormal, false, 0}}};
 
 static std::unordered_map<std::string, OptionTypeInfo>
     block_based_table_type_info = {
@@ -643,8 +646,8 @@ static std::unordered_map<std::string, OptionTypeInfo>
          {offsetof(struct BlockBasedTableOptions, whole_key_filtering),
           OptionType::kBoolean, OptionVerificationType::kNormal, false, 0}},
         {"skip_table_builder_flush",
-         {offsetof(struct BlockBasedTableOptions, skip_table_builder_flush),
-          OptionType::kBoolean, OptionVerificationType::kNormal, false, 0}},
+         {0, OptionType::kBoolean, OptionVerificationType::kDeprecated, false,
+          0}},
         {"format_version",
          {offsetof(struct BlockBasedTableOptions, format_version),
           OptionType::kUInt32T, OptionVerificationType::kNormal, false, 0}},
@@ -713,6 +716,13 @@ static std::unordered_map<std::string, CompactionStyle>
         {"kCompactionStyleUniversal", kCompactionStyleUniversal},
         {"kCompactionStyleFIFO", kCompactionStyleFIFO},
         {"kCompactionStyleNone", kCompactionStyleNone}};
+
+static std::unordered_map<std::string, CompactionPri>
+    compaction_pri_string_map = {
+        {"kByCompensatedSize", kByCompensatedSize},
+        {"kOldestLargestSeqFirst", kOldestLargestSeqFirst},
+        {"kOldestSmallestSeqFirst", kOldestSmallestSeqFirst},
+        {"kMinOverlappingRatio", kMinOverlappingRatio}};
 
 static std::unordered_map<std::string,
                           WALRecoveryMode> wal_recovery_mode_string_map = {

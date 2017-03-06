@@ -336,10 +336,12 @@ set(SOURCES
         table/format.cc
         table/full_filter_block.cc
         table/get_context.cc
+        table/index_builder.cc
         table/iterator.cc
         table/merging_iterator.cc
         table/sst_file_writer.cc
         table/meta_blocks.cc
+        table/partitioned_filter_block.cc
         table/plain_table_builder.cc
         table/plain_table_factory.cc
         table/plain_table_index.cc
@@ -558,6 +560,7 @@ set(TESTS
         db/db_iterator_test.cc
         db/db_range_del_test.cc
         db/db_sst_test.cc
+        db/external_sst_file_basic_test.cc
         db/external_sst_file_test.cc
         db/db_universal_compaction_test.cc
         db/db_wal_test.cc
