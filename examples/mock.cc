@@ -8,14 +8,14 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <algorithm>
 #include <cstdlib>
 #include <functional>
 #include <iostream>
 #include <memory>
 #include <random>
-#include <algorithm>
-#include <vector>
 #include <thread>
+#include <vector>
 #include "port/port.h"
 #include "rocksdb/db.h"
 #include "rocksdb/options.h"
@@ -74,7 +74,7 @@ std::string createValue(Rand& rnd) {
 
 void batchInsert(DB* db, int size, Rand& rnd) {
   Status s;
-  std::cout<<"batch insert" << std::endl;
+  std::cout << "batch insert" << std::endl;
   auto opt = WriteOptions();
   for (int k = 0; k < size; k++) {
     std::cout << "batch :" << k << std::endl;
@@ -89,7 +89,7 @@ void batchInsert(DB* db, int size, Rand& rnd) {
       std::cout << "batch insert:" << s.ToString() << std::endl;
     }
     assert(s.ok());
-    //db->Flush(FlushOptions());
+    // db->Flush(FlushOptions());
   }
 }
 
@@ -99,10 +99,10 @@ void read(DB* db) {
   auto opt = ReadOptions();
   opt.fill_cache = true;
   for (int i = 0; i < 5; i++) {
-    //auto k = kprefix + PaddedNumber(i, 8);
-    //Status s = db->Get(opt, k, &value);
-    //assert(s.ok());
-    //std::cout << "value " << value << std::endl;
+    // auto k = kprefix + PaddedNumber(i, 8);
+    // Status s = db->Get(opt, k, &value);
+    // assert(s.ok());
+    // std::cout << "value " << value << std::endl;
   }
 }
 
@@ -122,7 +122,24 @@ int main(int argc, char* argv[]) {
   options.env = env;
   // Optimize RocksDB. This is the easiest way to get RocksDB to perform well
   options.IncreaseParallelism();
+  // options.OptimizeLevelStyleCompaction();
   options.OptimizeLevelStyleCompaction();
+  options.compaction_style = kCompactionStyleUniversal;
+  options.num_levels = 4;
+  options.write_buffer_size = (uint64_t)(4.0 * 1024 * 1024 * 1024);
+  options.max_bytes_for_level_base = (uint64_t)(4.0 * 1024 * 1024 * 1024);
+  options.level0_file_num_compaction_trigger = 10;
+  options.level0_slowdown_writes_trigger = 100;
+  options.min_write_buffer_number_to_merge = 8;
+  options.max_write_buffer_number = 16;
+  options.target_file_size_base = 512 * 1024 * 1024;
+  options.max_subcompactions = 16;
+  options.max_background_compactions = 32;
+  options.max_background_flushes = 32;
+  options.writable_file_max_buffer_size = 512 * 1024 * 1024;
+  options.base_background_compactions = 8;
+  options.OptimizeUniversalStyleCompaction(
+      (uint64_t)(1.0 * 1024 * 1024 * 1024));
   // create the DB if it's not already present
   options.create_if_missing = true;
 
@@ -147,9 +164,10 @@ int main(int argc, char* argv[]) {
   Status s = DB::Open(options, argv[3], &db);
   assert(s.ok());
   Rand rnd;
-  batchInsert(db, 3, rnd);
+  batchInsert(db, 6000, rnd);
+  std::cout << "flushing.." << std::endl;
   db->Flush(FlushOptions());
-  //read(db);
+  // read(db);
   delete db;
 
   return 0;
