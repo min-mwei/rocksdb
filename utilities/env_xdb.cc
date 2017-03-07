@@ -121,7 +121,7 @@ class XdbReadableFile : virtual public SequentialFile,
       _size = size.empty() ? -1 : std::stoi(size);
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog, "[xdb] XdbReadableFile opening file %s with exception %s\n",
-           page_blob.name().c_str(), e.what());
+           Name(), e.what());
       _size = -1;
     }
   }
@@ -194,7 +194,7 @@ class XdbReadableFile : virtual public SequentialFile,
       return err_to_status(0);
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog, "[xdb] XdbReadableFile Read file %s with exception %s\n",
-           _page_blob.name().c_str(), e.what());
+           xdb_to_utf8string(_page_blob.name()).c_str(), e.what());
     }
     return Status::IOError(Status::kNone);
   }
@@ -238,20 +238,21 @@ class XdbWritableFile : public WritableFile {
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog, "[xdb] XdbWritableFile Append file %s with exception %s\n",
-           _page_blob.name().c_str(), e.what());
+           Name(), e.what());
     }
     return Status::IOError();
   }
 
   virtual Status Flush() {
+    if (_page_blob.exists()) return Status::IOError();
+    int numpages = _bufoffset / _page_size;
+    int remain = _bufoffset % _page_size;
+    int len = (numpages + (remain > 0 ? 1 : 0)) * _page_size;
     try {
       if (CurrSize() >= Capacity()) {
         Expand(CurrSize());
       }
       std::vector<char> buffer;
-      int numpages = _bufoffset / _page_size;
-      int remain = _bufoffset % _page_size;
-      int len = (numpages + (remain > 0 ? 1 : 0)) * _page_size;
       buffer.assign(&_buffer[0], &_buffer[len]);
       concurrency::streams::istream page_stream =
           concurrency::streams::bytestream::open_istream(buffer);
@@ -264,8 +265,8 @@ class XdbWritableFile : public WritableFile {
       _pageindex += numpages;
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
-      Info(mylog, "[xdb] XdbWritableFile Append file %s with exception %s\n",
-           _page_blob.name().c_str(), e.what());
+      Info(mylog, "[xdb] XdbWritableFile Flush file %s with exception %s data len %d\n",
+           Name(), e.what(), len);
     }
     return Status::IOError();
   }
@@ -294,7 +295,7 @@ class XdbWritableFile : public WritableFile {
       }
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog, "[xdb] XdbWritableFile Append file %s with exception %s\n",
-           _page_blob.name().c_str(), e.what());
+           Name(), e.what());
     }
     return Status::OK();
   }
@@ -316,7 +317,7 @@ class XdbWritableFile : public WritableFile {
       }
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog, "[xdb] XdbWritableFile Sync file %s with exception %s\n",
-           _page_blob.name().c_str(), e.what());
+           Name(), e.what());
     }
     return err_to_status(0);
   }
@@ -454,7 +455,7 @@ Status EnvXdb::NewDirectory(const std::string& name,
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog, "[xdb] EnvXdb NewDirectory %s with exception \n",
-           name.c_str(), e.what());
+           xdb_to_utf8string(name).c_str(), e.what());
       return Status::IOError();
     }
   }
@@ -497,7 +498,7 @@ Status EnvXdb::GetChildren(const std::string& dir,
       }
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog, "[xdb] EnvXdb GetChildren %s with exception %s\n",
-           dir.c_str(), e.what());
+           xdb_to_utf8string(dir).c_str(), e.what());
     }
     return Status::OK();
   }
@@ -526,7 +527,8 @@ int EnvXdb::WASRename(const std::string& source, const std::string& target) {
       utility::string_t copy_id = target_blob.start_copy(src_blob);
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog, "[xdb] EnvXdb WASRename src %s target %s with exception %s\n",
-           source.c_str(), target.c_str(), e.what());
+           xdb_to_utf8string(source).c_str(), xdb_to_utf8string(target).c_str(),
+           e.what());
       target_blob.delete_blob();
       return -EIO;
     }
@@ -555,11 +557,13 @@ int EnvXdb::WASRename(const std::string& source, const std::string& target) {
           break;
       }
       Info(mylog, "[xdb] EnvXdb WASRename src %s target %s with exception %s\n",
-           source.c_str(), target.c_str(), state_description.c_str());
+           xdb_to_utf8string(source).c_str(), xdb_to_utf8string(target).c_str(),
+           state_description.c_str());
     }
   } catch (const azure::storage::storage_exception& e) {
     Info(mylog, "[xdb] EnvXdb WASRename src %s target %s with exception %s\n",
-         source.c_str(), target.c_str(), e.what());
+         xdb_to_utf8string(source).c_str(), xdb_to_utf8string(target).c_str(),
+         e.what());
   }
   return -EIO;
 }
@@ -589,7 +593,7 @@ Status EnvXdb::FileExists(const std::string& fname) {
       }
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog, "[xdb] EnvXdb FileExists %s target with exception %s\n",
-           fname.c_str(), e.what());
+           xdb_to_utf8string(fname).c_str(), e.what());
     }
     return Status::NotFound();
   }
@@ -608,7 +612,7 @@ Status EnvXdb::GetFileSize(const std::string& f, uint64_t* s) {
       *s = size.empty() ? -1 : std::stoi(size);
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog, "[xdb] EnvXdb GetFileSize %s target with exception %s\n",
-           f.c_str(), e.what());
+           xdb_to_utf8string(f).c_str(), e.what());
     }
     return Status::OK();
   }
@@ -624,7 +628,7 @@ Status EnvXdb::DeleteBlob(const std::string& f) {
     return Status::OK();
   } catch (const azure::storage::storage_exception& e) {
     Info(mylog, "[xdb] EnvXdb DeleteBlob %s target with exception %s\n",
-         f.c_str(), e.what());
+         xdb_to_utf8string(f).c_str(), e.what());
     return Status::IOError();
   }
 }
@@ -656,7 +660,7 @@ Status EnvXdb::CreateDir(const std::string& d) {
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog, "[xdb] EnvXdb CreateDir %s target with exception %s\n",
-           d.c_str(), e.what());
+           xdb_to_utf8string(d).c_str(), e.what());
       return Status::IOError();
     }
   }
@@ -676,7 +680,7 @@ Status EnvXdb::CreateDirIfMissing(const std::string& d) {
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog, "[xdb] EnvXdb CreateDir %s target with exception %s\n",
-           d.c_str(), e.what());
+           xdb_to_utf8string(d).c_str(), e.what());
       return Status::IOError();
     }
   }
