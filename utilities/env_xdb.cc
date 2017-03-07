@@ -221,29 +221,28 @@ class XdbWritableFile : public WritableFile {
   }
 
   virtual Status Append(const char* src, size_t size) {
-    try {
-      size_t remain = size;
-      while (remain > 0) {
-        size_t cap = _buf_size - _bufoffset;
-        char* target = _buffer + _bufoffset;
-        int len = (int)(remain > cap ? cap : remain);
-        memcpy(target, src, len);
-        target += len;
-        _bufoffset += len;
-        src += len;
-        _size += len;
-        if (cap < _page_size) {
-          Status s = Flush();
-          if (!s.ok()) return s;
+    size_t remain = size;
+    while (remain > 0) {
+      size_t cap = _buf_size - _bufoffset;
+      char* target = _buffer + _bufoffset;
+      int len = (int)(remain > cap ? cap : remain);
+      memcpy(target, src, len);
+      target += len;
+      _bufoffset += len;
+      src += len;
+      _size += len;
+      if (cap < _page_size) {
+        Status s = Flush();
+        if (!s.ok()) {
+          Info(mylog,
+               "[xdb] XdbWritableFile Append file %s with error %s\n",
+               Name(), s.ToString().c_str());
+          return s;
         }
-        remain -= len;
       }
-      return Status::OK();
-    } catch (const azure::storage::storage_exception& e) {
-      Info(mylog, "[xdb] XdbWritableFile Append file %s with exception %s\n",
-           Name(), e.what());
+      remain -= len;
     }
-    return Status::IOError();
+    return Status::OK();
   }
 
   virtual Status Flush() {
@@ -268,10 +267,10 @@ class XdbWritableFile : public WritableFile {
       _pageindex += numpages;
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
-      Info(
-          mylog,
-          "[xdb] XdbWritableFile Flush file %s with exception %s data len %d\n",
-          Name(), e.what(), len);
+      Info(mylog,
+           "[xdb] XdbWritableFile Flush file %s with exception %s data len "
+           "%d\n",
+           Name(), e.what(), len);
     }
     return Status::IOError();
   }
