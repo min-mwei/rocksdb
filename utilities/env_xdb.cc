@@ -23,6 +23,7 @@ const char* was_store = "was";
 
 const wchar_t* xdb_size = L"__xdb__size";
 const std::wstring xdb_magic = L"__xdb__";
+const wchar* filesep = L"/";
 
 static inline std::string&& xdb_to_utf8string(std::string&& value) {
   return std::move(value);
@@ -55,6 +56,7 @@ static inline utf16string xdb_utf8_to_utf16(const std::string& s) {
 #else
 
 const char* xdb_size = "__xdb__size";
+const char* filesep = "/";
 const std::string xdb_magic = "__xdb__";
 #define xdb_to_utf8string(x) (x)
 
@@ -100,6 +102,10 @@ std::string prefix(const std::string& name) {
   return name.substr(0, pos);
 }
 
+bool isSST(const std::string& name) {
+  return name.find(".sst", name.size() - 4) != std::string::npos;
+}
+
 static size_t XdbGetUniqueId(const cloud_page_blob& page_blob, char* id,
                              size_t max_size) {
   const std::string path = xdb_to_utf8string(page_blob.uri().path());
@@ -119,6 +125,7 @@ class XdbReadableFile : virtual public SequentialFile,
       _page_blob.download_attributes();
       std::string size = xdb_to_utf8string(_page_blob.metadata()[xdb_size]);
       _size = size.empty() ? -1 : std::stoi(size);
+      _shadow = nullptr;
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog, "[xdb] XdbReadableFile opening file %s with exception %s\n",
            Name(), e.what());
@@ -137,6 +144,11 @@ class XdbReadableFile : virtual public SequentialFile,
 
   virtual Status Read(uint64_t offset, size_t n, Slice* result,
                       char* scratch) const {
+    if (_shadow != nullptr) {
+      // Info(mylog, "[xdb] XdbReadableFile opening file %s for nbytes: %d\n",
+      //     xdb_to_utf8string(_page_blob.name()).c_str(), n);
+      return _shadow->Read(offset, n, result, scratch);
+    }
     return ReadContents(&offset, n, result, scratch);
   }
 
@@ -199,6 +211,9 @@ class XdbReadableFile : virtual public SequentialFile,
     return Status::IOError(Status::kNone);
   }
 
+ public:
+  unique_ptr<RandomAccessFile> _shadow;
+
  private:
   cloud_page_blob _page_blob;
   uint64_t _offset;
@@ -213,6 +228,7 @@ class XdbWritableFile : public WritableFile {
         "[xdb] XdbWritableFile opening file %s\n", page_blob.name().c_str());
     _page_blob.create(4 * 1024 * 1024);
     std::string name = xdb_to_utf8string(_page_blob.name());
+    _shadow = nullptr;
   }
 
   ~XdbWritableFile() {
@@ -234,8 +250,7 @@ class XdbWritableFile : public WritableFile {
       if (cap < _page_size) {
         Status s = Flush();
         if (!s.ok()) {
-          Info(mylog,
-               "[xdb] XdbWritableFile Append file %s with error %s\n",
+          Info(mylog, "[xdb] XdbWritableFile Append file %s with error %s\n",
                Name(), s.ToString().c_str());
           return s;
         }
@@ -275,7 +290,12 @@ class XdbWritableFile : public WritableFile {
     return Status::IOError();
   }
 
-  Status Append(const Slice& data) { return Append(data.data(), data.size()); }
+  Status Append(const Slice& data) {
+    if (_shadow != nullptr) {
+      _shadow->Append(data);
+    }
+    return Append(data.data(), data.size());
+  }
 
   Status PositionedAppend(const Slice& /* data */, uint64_t /* offset */) {
     Log(InfoLogLevel::DEBUG_LEVEL, mylog,
@@ -292,6 +312,9 @@ class XdbWritableFile : public WritableFile {
   }
 
   Status Truncate(uint64_t size) {
+    if (_shadow != nullptr) {
+      _shadow->Truncate(size);
+    }
     try {
       if (_page_blob.exists()) {
         Sync();
@@ -307,10 +330,16 @@ class XdbWritableFile : public WritableFile {
   Status Close() {
     Log(InfoLogLevel::DEBUG_LEVEL, mylog,
         "[xdb] XdbWritableFile closing file %s\n", _page_blob.name().c_str());
+    if (_shadow != nullptr) {
+      _shadow->Close();
+    }
     return err_to_status(0);
   }
 
   Status Sync() {
+    if (_shadow != nullptr) {
+      _shadow->Sync();
+    }
     try {
       if (_page_blob.exists()) {
         Flush();
@@ -342,6 +371,9 @@ class XdbWritableFile : public WritableFile {
     _page_blob.resize(size * 2);
   }
 
+ public:
+  unique_ptr<WritableFile> _shadow;
+
  private:
   const static int _page_size = 512;
   const static int _buf_size = 1024 * _page_size;
@@ -353,7 +385,8 @@ class XdbWritableFile : public WritableFile {
 };
 
 EnvXdb::EnvXdb(
-    Env* env, const std::vector<std::pair<std::string, std::string>>& dbpathmap)
+    Env* env, std::string shadowpath,
+    const std::vector<std::pair<std::string, std::string>>& dbpathmap = {})
     : EnvWrapper(env) {
   try {
     for (auto it = dbpathmap.begin(); it != dbpathmap.end(); ++it) {
@@ -365,6 +398,10 @@ EnvXdb::EnvXdb(
       container.create_if_not_exists();
       Info(mylog, "[xdb] create/open container %s\n", it->second.c_str());
       _containermap[it->second] = container;
+      _shadowpath = shadowpath;
+      if (!EnvWrapper::FileExists(_shadowpath).ok()) {
+        throw shadowpath;
+      }
     }
   } catch (const azure::storage::storage_exception& e) {
     Info(mylog, "[xdb] %s \n", e.what());
@@ -393,7 +430,16 @@ Status EnvXdb::NewWritableFile(const std::string& fname,
     auto container = GetContainer(n);
     cloud_page_blob page_blob =
         container.get_page_blob_reference(xdb_to_utf16string(n));
-    result->reset(new XdbWritableFile(page_blob));
+    XdbWritableFile* xf = new XdbWritableFile(page_blob);
+    result->reset(xf);
+    if (!_shadowpath.empty() && isSST(n)) {
+      Status s = EnvWrapper::CreateDirIfMissing(_shadowpath + prefix(n));
+      assert(s.ok());
+      s = EnvWrapper::NewWritableFile(
+          _shadowpath + prefix(n) + filesep + lastname(n), &xf->_shadow,
+          options);
+      assert(s.ok());
+    }
     return Status::OK();
   }
   return EnvWrapper::NewWritableFile(fname, result, options);
@@ -408,7 +454,16 @@ Status EnvXdb::NewRandomAccessFile(const std::string& fname,
     cloud_page_blob page_blob =
         container.get_page_blob_reference(xdb_to_utf16string(n));
     if (page_blob.exists()) {
-      result->reset(new XdbReadableFile(page_blob));
+      XdbReadableFile* xf = new XdbReadableFile(page_blob);
+      result->reset(xf);
+      if (!_shadowpath.empty() && isSST(n)) {
+        Status s = EnvWrapper::NewRandomAccessFile(
+            _shadowpath + prefix(n) + filesep + lastname(n), &xf->_shadow,
+            options);
+        if (!s.ok()) {
+          xf->_shadow = nullptr;
+        }
+      }
       return Status::OK();
     }
     return Status::NotFound();
@@ -639,7 +694,12 @@ Status EnvXdb::DeleteBlob(const std::string& f) {
 
 Status EnvXdb::DeleteFile(const std::string& f) {
   if (isWAS(f)) {
-    return DeleteBlob(f.substr(4));
+    std::string name = f.substr(4);
+    if (!_shadowpath.empty() && isSST(name)) {
+      EnvWrapper::DeleteFile(_shadowpath + prefix(name) + filesep +
+                             lastname(name));
+    }
+    return DeleteBlob(name);
   }
   return EnvWrapper::DeleteFile(f);
 }
@@ -835,7 +895,14 @@ Status EnvXdb::NewLogger(const std::string& fname,
 Status NewXdbEnv(
     Env** xdb_env,
     const std::vector<std::pair<std::string, std::string>>& dbpathmap) {
-  *xdb_env = new EnvXdb(Env::Default(), dbpathmap);
+  *xdb_env = new EnvXdb(Env::Default(), (""), dbpathmap);
+  return Status::OK();
+}
+
+Status NewXdbEnv(
+    Env** xdb_env, std::string shadowpath,
+    const std::vector<std::pair<std::string, std::string>>& dbpathmap) {
+  *xdb_env = new EnvXdb(Env::Default(), shadowpath, dbpathmap);
   return Status::OK();
 }
 }

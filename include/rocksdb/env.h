@@ -1095,7 +1095,8 @@ Status NewHdfsEnv(Env** hdfs_env, const std::string& fsname);
 
 // Returns a new environment that is used for Azure XStore environment.
 // This is a factory method for EnvXdb declared in rocksdb/utilities/env_xdb.h
- Status NewXdbEnv(Env** xdb_env, const std::vector<std::pair<std::string, std::string>>& dbpathmap);
+Status NewXdbEnv(Env** xdb_env, const std::vector<std::pair<std::string, std::string>>& dbpathmap);
+Status NewXdbEnv(Env** xdb_env, std::string shadowpath,const std::vector<std::pair<std::string, std::string>>& dbpathmap);
 
 }  // namespace rocksdb
 

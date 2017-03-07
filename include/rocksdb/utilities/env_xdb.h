@@ -25,8 +25,9 @@ class EnvXdb : public EnvWrapper {
   friend class XdbSequentialFile;
 
  public:
-  explicit EnvXdb(Env* env,
-                  const std::vector<std::pair<std::string, std::string>>& dbpathmap);
+  explicit EnvXdb(
+      Env* env, std::string shadowpath,
+      const std::vector<std::pair<std::string, std::string>>& dbpathmap);
 
   virtual Status NewWritableFile(const std::string& fname,
                                  unique_ptr<WritableFile>* result,
@@ -84,5 +85,6 @@ class EnvXdb : public EnvWrapper {
 
  private:
   std::map<std::string, azure::storage::cloud_blob_container> _containermap;
+  std::string _shadowpath;
 };
 }
