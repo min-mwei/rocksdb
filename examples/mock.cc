@@ -168,6 +168,7 @@ int main(int argc, char* argv[]) {
   options.table_factory.reset(NewBlockBasedTableFactory(table_options));
   // open DB
   Status s = DB::Open(options, argv[3], &db);
+  std::cout << "open: " << s.ToString() << std::endl;
   assert(s.ok());
   Rand rnd;
   batchInsert(db, 20000, rnd);

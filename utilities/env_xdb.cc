@@ -244,7 +244,7 @@ class XdbWritableFile : public WritableFile {
   }
 
   virtual Status Flush() {
-    if (_page_blob.exists()) return Status::IOError();
+    if (!_page_blob.exists()) return Status::IOError();
     int numpages = _bufoffset / _page_size;
     int remain = _bufoffset % _page_size;
     int len = (numpages + (remain > 0 ? 1 : 0)) * _page_size;
@@ -265,8 +265,10 @@ class XdbWritableFile : public WritableFile {
       _pageindex += numpages;
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
-      Info(mylog, "[xdb] XdbWritableFile Flush file %s with exception %s data len %d\n",
-           Name(), e.what(), len);
+      Info(
+          mylog,
+          "[xdb] XdbWritableFile Flush file %s with exception %s data len %d\n",
+          Name(), e.what(), len);
     }
     return Status::IOError();
   }
