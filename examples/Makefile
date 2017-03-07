@@ -17,6 +17,9 @@ all: mock cache_example simple_example column_families_example compact_files_exa
 mock: librocksdb mock.cc
 	$(CXX) $(CXXFLAGS) $@.cc -o$@ ../librocksdb.a -I../include -I ../ -O2 -std=c++11 $(PLATFORM_LDFLAGS) $(PLATFORM_CXXFLAGS) $(EXEC_LDFLAGS)
 
+mock2: librocksdb mock2.cc
+	$(CXX) $(CXXFLAGS) $@.cc -o$@ ../librocksdb.a -I../include -I ../ -O2 -std=c++11 $(PLATFORM_LDFLAGS) $(PLATFORM_CXXFLAGS) $(EXEC_LDFLAGS)
+
 cache_example: librocksdb cache_example.cc
 	$(CXX) $(CXXFLAGS) $@.cc -g -o$@ ../librocksdb.a -I../include -I ../ -O2 -std=c++11 $(PLATFORM_LDFLAGS) $(PLATFORM_CXXFLAGS) $(EXEC_LDFLAGS)
 
