@@ -136,7 +136,7 @@ int main(int argc, char* argv[]) {
   std::string conn = argv[1];
   std::string container = argv[2];
   dbpathmap.push_back(std::make_pair(conn, container));
-  NewXdbEnv(&env, "shadow/", dbpathmap);
+  NewXdbEnv(&env, "shadow", dbpathmap);
   options.env = env;
   // Optimize RocksDB. This is the easiest way to get RocksDB to perform well
   options.IncreaseParallelism();

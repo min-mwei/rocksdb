@@ -23,7 +23,7 @@ const char* was_store = "was";
 
 const wchar_t* xdb_size = L"__xdb__size";
 const std::wstring xdb_magic = L"__xdb__";
-const wchar* filesep = L"/";
+const char* filesep = "/";
 
 static inline std::string&& xdb_to_utf8string(std::string&& value) {
   return std::move(value);
@@ -433,11 +433,12 @@ Status EnvXdb::NewWritableFile(const std::string& fname,
     XdbWritableFile* xf = new XdbWritableFile(page_blob);
     result->reset(xf);
     if (!_shadowpath.empty() && isSST(n)) {
-      Status s = EnvWrapper::CreateDirIfMissing(_shadowpath + prefix(n));
+      Status s =
+          EnvWrapper::CreateDirIfMissing(_shadowpath + filesep + prefix(n));
       assert(s.ok());
       s = EnvWrapper::NewWritableFile(
-          _shadowpath + prefix(n) + filesep + lastname(n), &xf->_shadow,
-          options);
+          _shadowpath + filesep + prefix(n) + filesep + lastname(n),
+          &xf->_shadow, options);
       assert(s.ok());
     }
     return Status::OK();
@@ -458,8 +459,8 @@ Status EnvXdb::NewRandomAccessFile(const std::string& fname,
       result->reset(xf);
       if (!_shadowpath.empty() && isSST(n)) {
         Status s = EnvWrapper::NewRandomAccessFile(
-            _shadowpath + prefix(n) + filesep + lastname(n), &xf->_shadow,
-            options);
+            _shadowpath + filesep + prefix(n) + filesep + lastname(n),
+            &xf->_shadow, options);
         if (!s.ok()) {
           xf->_shadow = nullptr;
         }
@@ -696,7 +697,7 @@ Status EnvXdb::DeleteFile(const std::string& f) {
   if (isWAS(f)) {
     std::string name = f.substr(4);
     if (!_shadowpath.empty() && isSST(name)) {
-      EnvWrapper::DeleteFile(_shadowpath + prefix(name) + filesep +
+      EnvWrapper::DeleteFile(_shadowpath + filesep + prefix(name) + filesep +
                              lastname(name));
     }
     return DeleteBlob(name);
