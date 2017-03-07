@@ -92,8 +92,10 @@ void batchInsert(DB* db, int size, Rand& rnd) {
       else {
         std::cout << "batch insert:" << s.ToString() << std::endl;
       }
+      int k = 1000000;
+      while (k-- > 0);
     }
-    //assert(s.ok());
+    assert(s.ok());
     // db->Flush(FlushOptions());
   }
 }
