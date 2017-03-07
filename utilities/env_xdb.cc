@@ -232,7 +232,10 @@ class XdbWritableFile : public WritableFile {
         _bufoffset += len;
         src += len;
         _size += len;
-        if (cap < _page_size) Flush();
+        if (cap < _page_size) {
+          Status s = Flush();
+          if (!s.ok()) return s;
+        }
         remain -= len;
       }
       return Status::OK();
