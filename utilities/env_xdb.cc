@@ -126,6 +126,7 @@ class XdbReadableFile : virtual public SequentialFile,
       std::string size = xdb_to_utf8string(_page_blob.metadata()[xdb_size]);
       _size = size.empty() ? -1 : std::stoi(size);
       _shadow = nullptr;
+      _shadow_skip = false;
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog, "[xdb] XdbReadableFile opening file %s with exception %s\n",
            Name(), e.what());
@@ -144,10 +145,16 @@ class XdbReadableFile : virtual public SequentialFile,
 
   virtual Status Read(uint64_t offset, size_t n, Slice* result,
                       char* scratch) const {
-    if (_shadow != nullptr) {
-      // Info(mylog, "[xdb] XdbReadableFile opening file %s for nbytes: %d\n",
-      //     xdb_to_utf8string(_page_blob.name()).c_str(), n);
-      return _shadow->Read(offset, n, result, scratch);
+    if (_shadow != nullptr && !_shadow_skip) {
+      Status s = _shadow->Read(offset, n, result, scratch);
+      if (s.ok()) {
+        return s;
+      } else {
+        Info(mylog, "[xdb] XdbReadableFile Shadow read file %s error: %s\n",
+             xdb_to_utf8string(_page_blob.name()).c_str(),
+             s.ToString().c_str());
+        const_cast<XdbReadableFile*>(this)->_shadow_skip = true;
+      }
     }
     return ReadContents(&offset, n, result, scratch);
   }
@@ -213,7 +220,7 @@ class XdbReadableFile : virtual public SequentialFile,
 
  public:
   unique_ptr<RandomAccessFile> _shadow;
-
+  bool _shadow_skip;
  private:
   cloud_page_blob _page_blob;
   uint64_t _offset;
@@ -229,6 +236,7 @@ class XdbWritableFile : public WritableFile {
     _page_blob.create(4 * 1024 * 1024);
     std::string name = xdb_to_utf8string(_page_blob.name());
     _shadow = nullptr;
+    _shadow_skip = false;
   }
 
   ~XdbWritableFile() {
@@ -292,8 +300,14 @@ class XdbWritableFile : public WritableFile {
   }
 
   Status Append(const Slice& data) {
-    if (_shadow != nullptr) {
-      _shadow->Append(data);
+    if (_shadow != nullptr && !_shadow_skip) {
+      Status s = _shadow->Append(data);
+      if (!s.ok()) {
+        Info(mylog,
+             "[xdb] XdbWritableFile Shadow Append file %s with error %s\n",
+             Name(), s.ToString().c_str());
+        _shadow_skip = true;
+      }
     }
     return Append(data.data(), data.size());
   }
@@ -374,7 +388,7 @@ class XdbWritableFile : public WritableFile {
 
  public:
   unique_ptr<WritableFile> _shadow;
-
+  bool _shadow_skip;
  private:
   const static int _page_size = 512;
   const static int _buf_size = 1024 * _page_size;
