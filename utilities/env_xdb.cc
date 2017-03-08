@@ -124,7 +124,7 @@ class XdbReadableFile : virtual public SequentialFile,
           "[xdb] XdbReadableFile opening file %s\n", page_blob.name().c_str());
       _page_blob.download_attributes();
       std::string size = xdb_to_utf8string(_page_blob.metadata()[xdb_size]);
-      _size = size.empty() ? -1 : std::stoi(size);
+      _size = size.empty() ? -1 : std::stoll(size);
       _shadow = nullptr;
       _shadow_skip = false;
     } catch (const azure::storage::storage_exception& e) {
@@ -684,7 +684,7 @@ Status EnvXdb::GetFileSize(const std::string& f, uint64_t* s) {
           container.get_page_blob_reference(xdb_to_utf16string(n));
       page_blob.download_attributes();
       std::string size = xdb_to_utf8string(page_blob.metadata()[xdb_size]);
-      *s = size.empty() ? -1 : std::stoi(size);
+      *s = size.empty() ? -1 : std::stoll(size);
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog, "[xdb] EnvXdb GetFileSize %s target with exception %s\n",
            xdb_to_utf8string(f).c_str(), e.what());
