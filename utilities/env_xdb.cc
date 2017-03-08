@@ -265,6 +265,7 @@ class XdbWritableFile : public WritableFile {
     int numpages = _bufoffset / _page_size;
     int remain = _bufoffset % _page_size;
     int len = (numpages + (remain > 0 ? 1 : 0)) * _page_size;
+    if (len == 0) return Status::OK();
     try {
       if (CurrSize() >= Capacity()) {
         Expand(CurrSize());
