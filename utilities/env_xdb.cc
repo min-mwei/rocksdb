@@ -303,8 +303,9 @@ class XdbWritableFile : public WritableFile {
       if (!s.ok()) {
         Info(mylog,
              "[xdb] XdbWritableFile Shadow Append file %s with error %s\n",
-             Name(), s.ToString().c_str());
+             _shadowname.c_str(), s.ToString().c_str());
         _shadow->Close();
+        Env::Default()->DeleteFile(_shadowname);
         _shadow = nullptr;
       }
     }
@@ -387,6 +388,7 @@ class XdbWritableFile : public WritableFile {
 
  public:
   unique_ptr<WritableFile> _shadow;
+  std::string _shadowname;
 
  private:
   const static int _page_size = 512;
@@ -450,9 +452,13 @@ Status EnvXdb::NewWritableFile(const std::string& fname,
       Status s =
           EnvWrapper::CreateDirIfMissing(_shadowpath + filesep + prefix(n));
       assert(s.ok());
-      s = EnvWrapper::NewWritableFile(
-          _shadowpath + filesep + prefix(n) + filesep + lastname(n),
-          &xf->_shadow, options);
+      xf->_shadowname =
+          _shadowpath + filesep + prefix(n) + filesep + lastname(n);
+      s = EnvWrapper::NewWritableFile(xf->_shadowname, &xf->_shadow, options);
+      if (!s.ok()) {
+        Info(mylog, "[xdb] XdbWritableFile Shadow Creation %s with error %s\n",
+             xf->_shadowname.c_str(), s.ToString().c_str());
+      }
       assert(s.ok());
     }
     return Status::OK();
