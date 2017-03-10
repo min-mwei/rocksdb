@@ -2158,7 +2158,7 @@ TEST_F(DBTest, GroupCommitTest) {
     ASSERT_TRUE(!itr->Valid());
     delete itr;
 
-    HistogramData hist_data = {0, 0, 0, 0, 0};
+    HistogramData hist_data;
     options.statistics->histogramData(DB_WRITE, &hist_data);
     ASSERT_GT(hist_data.average, 0.0);
   } while (ChangeOptions(kSkipNoSeekToLast));
@@ -2815,15 +2815,15 @@ TEST_F(DBTest, RateLimitingTest) {
     ASSERT_OK(
         Put(RandomString(&rnd, 32), RandomString(&rnd, (1 << 10) + 1), wo));
   }
-  elapsed = env_->NowMicros() - start;
   rate_limiter_drains =
       TestGetTickerCount(options, NUMBER_RATE_LIMITER_DRAINS) -
       rate_limiter_drains;
+  elapsed = env_->NowMicros() - start;
   Close();
   ASSERT_EQ(options.rate_limiter->GetTotalBytesThrough(), env_->bytes_written_);
   // Most intervals should've been drained (interval time is 100ms, elapsed is
   // micros)
-  ASSERT_GT(rate_limiter_drains, elapsed / 100000 / 2);
+  ASSERT_GT(rate_limiter_drains, 0);
   ASSERT_LE(rate_limiter_drains, elapsed / 100000 + 1);
   double ratio = env_->bytes_written_ * 1000000 / elapsed / raw_rate;
   fprintf(stderr, "write rate ratio = %.2lf, expected 0.7\n", ratio);
@@ -5208,7 +5208,7 @@ TEST_F(DBTest, PauseBackgroundWorkTest) {
   });
   env_->SleepForMicroseconds(200000);
   // make sure the thread is not done
-  ASSERT_EQ(false, done.load());
+  ASSERT_FALSE(done.load());
   db_->ContinueBackgroundWork();
   for (auto& t : threads) {
     t.join();
