@@ -154,7 +154,7 @@ int main(int argc, char* argv[]) {
   std::string cache_path = argv[4];
   auto log = std::make_shared<ConsoleLogger>();
   std::shared_ptr<PersistentCache> cache;
-  status = NewPersistentCache(Env::Default(), cache_path,
+  status = NewPersistentCache(env, cache_path,
                               /*size=*/cache_size, log, true, &cache);
   assert(status.ok());
   BlockBasedTableOptions table_options;
@@ -171,7 +171,7 @@ int main(int argc, char* argv[]) {
   std::cout << "open: " << s.ToString() << std::endl;
   assert(s.ok());
   Rand rnd;
-  batchInsert(db, 20000, rnd);
+  batchInsert(db, 200000, rnd);
   std::cout << "flushing.." << std::endl;
   db->Flush(FlushOptions());
   // read(db);
