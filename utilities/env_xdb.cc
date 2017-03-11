@@ -699,7 +699,7 @@ Status EnvXdb::GetFileSize(const std::string& f, uint64_t* s) {
   return EnvWrapper::GetFileSize(f, s);
 }
 
-Status EnvXdb::DeleteBlob(const std::string& f) {
+Status EnvXdb::DeleteBlob(std::string& f) {
   try {
     auto container = GetContainer(f);
     fixname(f);
