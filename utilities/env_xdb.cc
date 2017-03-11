@@ -702,8 +702,9 @@ Status EnvXdb::GetFileSize(const std::string& f, uint64_t* s) {
 Status EnvXdb::DeleteBlob(const std::string& f) {
   try {
     auto container = GetContainer(f);
+    fixname(f);
     cloud_page_blob page_blob =
-        container.get_page_blob_reference(xdb_to_utf16string(fixname(f)));
+        container.get_page_blob_reference(xdb_to_utf16string(f));
     page_blob.delete_blob();
     return Status::OK();
   } catch (const azure::storage::storage_exception& e) {
