@@ -699,10 +699,9 @@ Status EnvXdb::GetFileSize(const std::string& f, uint64_t* s) {
   return EnvWrapper::GetFileSize(f, s);
 }
 
-Status EnvXdb::DeleteBlob(std::string& f) {
+Status EnvXdb::DeleteBlob(const std::string& f) {
   try {
     auto container = GetContainer(f);
-    fixname(f);
     cloud_page_blob page_blob =
         container.get_page_blob_reference(xdb_to_utf16string(f));
     page_blob.delete_blob();
@@ -721,6 +720,7 @@ Status EnvXdb::DeleteFile(const std::string& f) {
       EnvWrapper::DeleteFile(_shadowpath + filesep + prefix(name) + filesep +
                              lastname(name));
     }
+    fixname(name);
     return DeleteBlob(name);
   }
   return EnvWrapper::DeleteFile(f);
