@@ -703,7 +703,7 @@ Status EnvXdb::DeleteBlob(const std::string& f) {
   try {
     auto container = GetContainer(f);
     cloud_page_blob page_blob =
-        container.get_page_blob_reference(xdb_to_utf16string(f));
+        container.get_page_blob_reference(xdb_to_utf16string(fixname(f)));
     page_blob.delete_blob();
     return Status::OK();
   } catch (const azure::storage::storage_exception& e) {
