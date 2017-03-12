@@ -746,9 +746,9 @@ Status EnvXdb::DeleteFile(const std::string& f) {
       if (EnvWrapper::FileExists(sn).ok()) {
         EnvWrapper::DeleteFile(sn);
       }
-      fixname(name);
-      return DeleteBlob(name);
     }
+    fixname(name);
+    return DeleteBlob(name);
   }
   return EnvWrapper::DeleteFile(f);
 }
