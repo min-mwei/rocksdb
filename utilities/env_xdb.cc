@@ -290,9 +290,10 @@ class XdbWritableFile : public WritableFile {
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog,
-           "[xdb] XdbWritableFile Flush file %s with exception %s data len "
+           "[xdb] XdbWritableFile Flush file %s with exception %s file size "
+           "%lld page index %lld data len "
            "%d\n",
-           Name(), e.what(), len);
+           Name(), e.what(), _size, _pageindex, len);
     }
     return Status::IOError();
   }
@@ -442,24 +443,33 @@ Status EnvXdb::NewWritableFile(const std::string& fname,
                                unique_ptr<WritableFile>* result,
                                const EnvOptions& options) {
   if (isWAS(fname)) {
-    std::string n = fname.substr(4);
-    auto container = GetContainer(n);
-    cloud_page_blob page_blob =
-        container.get_page_blob_reference(xdb_to_utf16string(n));
-    XdbWritableFile* xf = new XdbWritableFile(page_blob);
-    result->reset(xf);
-    if (!_shadowpath.empty() && isSST(n)) {
-      Status s =
-          EnvWrapper::CreateDirIfMissing(_shadowpath + filesep + prefix(n));
-      assert(s.ok());
-      xf->_shadowname =
-          _shadowpath + filesep + prefix(n) + filesep + lastname(n);
-      s = EnvWrapper::NewWritableFile(xf->_shadowname, &xf->_shadow, options);
-      if (!s.ok()) {
-        Info(mylog, "[xdb] XdbWritableFile Shadow Creation %s with error %s\n",
-             xf->_shadowname.c_str(), s.ToString().c_str());
+    try {
+      std::string n = fname.substr(4);
+      auto container = GetContainer(n);
+      cloud_page_blob page_blob =
+          container.get_page_blob_reference(xdb_to_utf16string(n));
+      XdbWritableFile* xf = new XdbWritableFile(page_blob);
+      result->reset(xf);
+      if (!_shadowpath.empty() && isSST(n)) {
+        Status s =
+            EnvWrapper::CreateDirIfMissing(_shadowpath + filesep + prefix(n));
+        if (s.ok()) {
+          xf->_shadowname =
+              _shadowpath + filesep + prefix(n) + filesep + lastname(n);
+          s = EnvWrapper::NewWritableFile(xf->_shadowname, &xf->_shadow,
+                                          options);
+          if (!s.ok()) {
+            Info(mylog,
+                 "[xdb] XdbWritableFile Shadow Creation %s with error %s\n",
+                 xf->_shadowname.c_str(), s.ToString().c_str());
+            xf->_shadow = nullptr;
+          }
+        }
       }
-      assert(s.ok());
+    } catch (const azure::storage::storage_exception& e) {
+      Info(mylog, "[xdb] EnvXdb NewWritableFile %s with exception \n",
+           xdb_to_utf8string(fname).c_str(), e.what());
+      return Status::IOError();
     }
     return Status::OK();
   }
@@ -470,24 +480,31 @@ Status EnvXdb::NewRandomAccessFile(const std::string& fname,
                                    std::unique_ptr<RandomAccessFile>* result,
                                    const EnvOptions& options) {
   if (isWAS(fname)) {
-    std::string n = fname.substr(4);
-    auto container = GetContainer(n);
-    cloud_page_blob page_blob =
-        container.get_page_blob_reference(xdb_to_utf16string(n));
-    if (page_blob.exists()) {
-      XdbReadableFile* xf = new XdbReadableFile(page_blob);
-      result->reset(xf);
-      if (!_shadowpath.empty() && isSST(n)) {
-        Status s = EnvWrapper::NewRandomAccessFile(
-            _shadowpath + filesep + prefix(n) + filesep + lastname(n),
-            &xf->_shadow, options);
-        if (!s.ok()) {
-          xf->_shadow = nullptr;
+    try {
+      std::string n = fname.substr(4);
+      auto container = GetContainer(n);
+      cloud_page_blob page_blob =
+          container.get_page_blob_reference(xdb_to_utf16string(n));
+      if (page_blob.exists()) {
+        XdbReadableFile* xf = new XdbReadableFile(page_blob);
+        result->reset(xf);
+        if (!_shadowpath.empty() && isSST(n)) {
+          Status s = EnvWrapper::NewRandomAccessFile(
+              _shadowpath + filesep + prefix(n) + filesep + lastname(n),
+              &xf->_shadow, options);
+          if (!s.ok()) {
+            xf->_shadow = nullptr;
+          }
         }
+        return Status::OK();
       }
-      return Status::OK();
+      return Status::NotFound();
+    } catch (const azure::storage::storage_exception& e) {
+      Info(mylog,
+           "[xdb] EnvXdb NewRandomAccessFile %s target with exception %s\n",
+           xdb_to_utf8string(fname).c_str(), e.what());
+      return Status::IOError();
     }
-    return Status::NotFound();
   }
   return EnvWrapper::NewRandomAccessFile(fname, result, options);
 }
@@ -496,15 +513,22 @@ Status EnvXdb::NewSequentialFile(const std::string& fname,
                                  std::unique_ptr<SequentialFile>* result,
                                  const EnvOptions& options) {
   if (isWAS(fname)) {
-    std::string n = fname.substr(4);
-    auto container = GetContainer(n);
-    cloud_page_blob page_blob =
-        container.get_page_blob_reference(xdb_to_utf16string(n));
-    if (page_blob.exists()) {
-      result->reset(new XdbReadableFile(page_blob));
-      return Status::OK();
+    try {
+      std::string n = fname.substr(4);
+      auto container = GetContainer(n);
+      cloud_page_blob page_blob =
+          container.get_page_blob_reference(xdb_to_utf16string(n));
+      if (page_blob.exists()) {
+        result->reset(new XdbReadableFile(page_blob));
+        return Status::OK();
+      }
+      return Status::NotFound();
+    } catch (const azure::storage::storage_exception& e) {
+      Info(mylog,
+           "[xdb] EnvXdb NewRandomAccessFile %s target with exception %s\n",
+           xdb_to_utf8string(fname).c_str(), e.what());
+      return Status::IOError();
     }
-    return Status::NotFound();
   }
   return EnvWrapper::NewSequentialFile(fname, result, options);
 }
