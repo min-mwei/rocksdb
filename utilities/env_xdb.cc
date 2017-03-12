@@ -741,11 +741,14 @@ Status EnvXdb::DeleteFile(const std::string& f) {
   if (isWAS(f)) {
     std::string name = f.substr(4);
     if (!_shadowpath.empty() && isSST(name)) {
-      EnvWrapper::DeleteFile(_shadowpath + filesep + prefix(name) + filesep +
-                             lastname(name));
+      std::string sn =
+          _shadowpath + filesep + prefix(name) + filesep + lastname(name);
+      if (EnvWrapper::FileExists(sn).ok()) {
+        EnvWrapper::DeleteFile(sn);
+      }
+      fixname(name);
+      return DeleteBlob(name);
     }
-    fixname(name);
-    return DeleteBlob(name);
   }
   return EnvWrapper::DeleteFile(f);
 }
