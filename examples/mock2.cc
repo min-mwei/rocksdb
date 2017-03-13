@@ -135,23 +135,23 @@ int main(int argc, char* argv[]) {
   options.num_levels = 4;
   options.write_buffer_size = (uint64_t)(4.0 * 1024 * 1024 * 1024);
   options.max_bytes_for_level_base = (uint64_t)(4.0 * 1024 * 1024 * 1024);
-  options.level0_file_num_compaction_trigger = 10;
-  options.level0_slowdown_writes_trigger = 120;
+  options.level0_file_num_compaction_trigger = 4;
+  options.level0_slowdown_writes_trigger = 50;
   options.min_write_buffer_number_to_merge = 8;
   options.max_write_buffer_number = 16;
-  options.target_file_size_base = 512 * 1024 * 1024;
+  options.target_file_size_base = (int)(1.5 * 1024 * 1024 * 1024);
   options.max_subcompactions = 16;
   options.max_background_compactions = 32;
   options.max_background_flushes = 32;
-  options.writable_file_max_buffer_size = 512 * 1024 * 1024;
+  options.writable_file_max_buffer_size = (int)(1.5 * 1024 * 1024 * 1024);
   options.base_background_compactions = 8;
   options.OptimizeUniversalStyleCompaction(
-      (uint64_t)(1.0 * 1024 * 1024 * 1024));
+      (uint64_t)(4.0 * 1024 * 1024 * 1024));
   // create the DB if it's not already present
   options.create_if_missing = true;
 
   Status status;
-  uint64_t cache_size = 1024 * 1024 * 1024;
+  uint64_t cache_size = 512 * 1024 * 1024;
   std::string cache_path = argv[4];
   auto log = std::make_shared<ConsoleLogger>();
   std::shared_ptr<PersistentCache> cache;
