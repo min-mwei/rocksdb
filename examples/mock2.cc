@@ -87,13 +87,14 @@ void batchInsert(DB* db, int size, Rand& rnd) {
     int i = 3;
     while (i-- > 0) {
       s = db->Write(WriteOptions(), &batch);
-      if(s.ok())
+      if (s.ok())
         break;
       else {
         std::cout << "batch insert:" << s.ToString() << std::endl;
       }
       int k = 1000000;
-      while (k-- > 0);
+      while (k-- > 0)
+        ;
     }
     assert(s.ok());
     // db->Flush(FlushOptions());

@@ -291,9 +291,9 @@ class XdbWritableFile : public WritableFile {
     } catch (const azure::storage::storage_exception& e) {
       Info(mylog,
            "[xdb] XdbWritableFile Flush file %s with exception %s file size "
-           "%lld page index %lld data len "
+           "%d page index %d data len "
            "%d\n",
-           Name(), e.what(), _size, _pageindex, len);
+           Name(), e.what(), (int)_size, (int)_pageindex, len);
     }
     return Status::IOError();
   }
