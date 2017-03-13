@@ -467,7 +467,7 @@ Status EnvXdb::NewWritableFile(const std::string& fname,
         }
       }
     } catch (const azure::storage::storage_exception& e) {
-      Info(mylog, "[xdb] EnvXdb NewWritableFile %s with exception \n",
+      Info(mylog, "[xdb] EnvXdb NewWritableFile %s with exception %s \n",
            xdb_to_utf8string(fname).c_str(), e.what());
       return Status::IOError();
     }
