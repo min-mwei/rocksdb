@@ -229,7 +229,11 @@ class XdbReadableFile : virtual public SequentialFile,
 class XdbWritableFile : public WritableFile {
  public:
   XdbWritableFile(cloud_page_blob& page_blob)
-      : _page_blob(page_blob), _bufoffset(0), _pageindex(0), _size(0) {
+      : _page_blob(page_blob),
+        _bufoffset(0),
+        _pageindex(0),
+        _size(0),
+        _iofail(false) {
     Log(InfoLogLevel::DEBUG_LEVEL, mylog,
         "[xdb] XdbWritableFile opening file %s\n", page_blob.name().c_str());
     _page_blob.create(4 * 1024 * 1024);
@@ -267,7 +271,7 @@ class XdbWritableFile : public WritableFile {
   }
 
   virtual Status Flush() {
-    if (!_page_blob.exists()) return Status::IOError();
+    if (!_page_blob.exists()) return Status::NotFound();
     int numpages = _bufoffset / _page_size;
     int remain = _bufoffset % _page_size;
     int len = (numpages + (remain > 0 ? 1 : 0)) * _page_size;
@@ -289,12 +293,16 @@ class XdbWritableFile : public WritableFile {
       _pageindex += numpages;
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
-      /*Info(mylog,
-           "[xdb] XdbWritableFile Flush file %s with exception %s file size "
-           "%d page index %d data len "
-           "%d\n",
-           Name(), e.what(), (int)_size, (int)_pageindex, len);*/
-      return Status::Aborted();
+      if (!_iofail) {
+        _iofail = true;
+        Info(mylog,
+             "[xdb] XdbWritableFile Flush file %s with exception %s file size "
+             "%d page index %d data len "
+             "%d\n",
+             Name(), e.what(), (int)_size, (int)_pageindex, len);
+      } else {
+        return Status::Aborted();
+      }
     }
     return Status::NoSpace();
   }
@@ -399,6 +407,7 @@ class XdbWritableFile : public WritableFile {
   int _bufoffset;
   uint64_t _pageindex;
   uint64_t _size;
+  bool _iofail;
   char _buffer[_buf_size + 1024];
 };
 
