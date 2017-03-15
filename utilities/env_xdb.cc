@@ -289,13 +289,14 @@ class XdbWritableFile : public WritableFile {
       _pageindex += numpages;
       return Status::OK();
     } catch (const azure::storage::storage_exception& e) {
-      Info(mylog,
+      /*Info(mylog,
            "[xdb] XdbWritableFile Flush file %s with exception %s file size "
            "%d page index %d data len "
            "%d\n",
-           Name(), e.what(), (int)_size, (int)_pageindex, len);
+           Name(), e.what(), (int)_size, (int)_pageindex, len);*/
+      return Status::Aborted();
     }
-    return Status::IOError();
+    return Status::NoSpace();
   }
 
   Status Append(const Slice& data) {
