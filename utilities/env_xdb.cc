@@ -277,7 +277,7 @@ class XdbWritableFile : public WritableFile {
     int len = (numpages + (remain > 0 ? 1 : 0)) * _page_size;
     if (len == 0) return Status::OK();
     try {
-      if (CurrSize() >= Capacity()) {
+      if ((CurrSize() + len) >= Capacity()) {
         Expand(CurrSize());
       }
       std::vector<char> buffer;
@@ -298,8 +298,9 @@ class XdbWritableFile : public WritableFile {
         Info(mylog,
              "[xdb] XdbWritableFile Flush file %s with exception %s file size "
              "%d page index %d data len "
-             "%d\n",
-             Name(), e.what(), (int)_size, (int)_pageindex, len);
+             "%d capacity %d \n",
+             Name(), e.what(), (int)_size, (int)_pageindex, len,
+             (int)Capacity());
       } else {
         return Status::Aborted();
       }
@@ -343,6 +344,7 @@ class XdbWritableFile : public WritableFile {
     try {
       if (_page_blob.exists()) {
         Sync();
+        _size = size;
         _page_blob.resize(((size >> 9) + 1) << 9);
       }
     } catch (const azure::storage::storage_exception& e) {
@@ -402,13 +404,13 @@ class XdbWritableFile : public WritableFile {
 
  private:
   const static int _page_size = 512;
-  const static int _buf_size = 1024 * _page_size;
+  const static int _buf_size = 1024 * 2 * _page_size;
   cloud_page_blob _page_blob;
   int _bufoffset;
   uint64_t _pageindex;
   uint64_t _size;
   bool _iofail;
-  char _buffer[_buf_size + 1024];
+  char _buffer[_buf_size + _page_size];
 };
 
 EnvXdb::EnvXdb(
