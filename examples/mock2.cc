@@ -131,7 +131,6 @@ int main(int argc, char* argv[]) {
   // Optimize RocksDB. This is the easiest way to get RocksDB to perform well
   options.IncreaseParallelism();
   // options.OptimizeLevelStyleCompaction();
-  options.compaction_style = kCompactionStyleUniversal;
   options.num_levels = 4;
   options.write_buffer_size = (uint64_t)(4.0 * 1024 * 1024 * 1024);
   options.max_bytes_for_level_base = (uint64_t)(4.0 * 1024 * 1024 * 1024);
@@ -145,7 +144,12 @@ int main(int argc, char* argv[]) {
   options.max_background_flushes = 32;
   options.writable_file_max_buffer_size = (int)(1.5 * 1024 * 1024 * 1024);
   options.base_background_compactions = 8;
-  options.OptimizeUniversalStyleCompaction(
+  //options.compaction_style = kCompactionStyleUniversal;
+  options.compaction_style = kCompactionStyleLevel;
+  options.num_levels = 5;
+
+  //options.OptimizeUniversalStyleCompaction(
+  options.OptimizeLevelStyleCompaction(
       (uint64_t)(4.0 * 1024 * 1024 * 1024));
   // create the DB if it's not already present
   options.create_if_missing = true;
