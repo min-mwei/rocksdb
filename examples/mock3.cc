@@ -164,7 +164,7 @@ int main(int argc, char* argv[]) {
   std::cout << "open: " << s.ToString() << std::endl;
   assert(s.ok());
   Rand rnd;
-  batchInsert(db, 200000, rnd);
+  batchInsert(db, 400000, rnd);
   std::cout << "flushing.." << std::endl;
   db->Flush(FlushOptions());
   delete db;
