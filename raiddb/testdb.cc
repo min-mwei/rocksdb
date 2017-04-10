@@ -121,5 +121,6 @@ int main(int argc, char* argv[]) {
   raiddb.Scan(token, 100, &data);
   dump(data);
   raiddb.CloseScanToken(token);
+  raiddb.Close();
   return 0;
 }
