@@ -12,10 +12,10 @@ PLATFORM_LDFLAGS += -L/usr/local/lib -L/usr/local/Cellar/openssl/1.0.2j/lib -lbo
 
 .PHONY: clean librocksdb
 
-all: raiddb
+all: testdb
 
-raiddb: librocksdb raiddb.cc
-	$(CXX) $(CXXFLAGS) $@.cc -o$@ ../librocksdb.a -I../include -I ../ -g -O2 -std=c++11 $(PLATFORM_LDFLAGS) $(PLATFORM_CXXFLAGS) $(EXEC_LDFLAGS)
+testdb: librocksdb raiddb.cc testdb.cc
+	$(CXX) $(CXXFLAGS) raiddb.cc $@.cc -o$@ ../librocksdb.a -I../include -I ../ -g -O2 -std=c++11 $(PLATFORM_LDFLAGS) $(PLATFORM_CXXFLAGS) $(EXEC_LDFLAGS)
 
 .c.o:
 	$(CC) $(CFLAGS) -c $< -o $@ -I../include

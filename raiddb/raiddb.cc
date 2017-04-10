@@ -17,8 +17,15 @@ class ConsoleLogger : public Logger {
 RaidDB::RaidDB(std::vector<std::pair<std::string, std::string>> store1,
                std::vector<std::pair<std::string, std::string>> store2)
     : _switch(0) {
-  NewXdbEnv(&_env[0], "shadow1", store1);
-  NewXdbEnv(&_env[1], "shadow2", store2);
+  //NewXdbEnv(&_env[0], "shadow1", store1);
+  //NewXdbEnv(&_env[1], "shadow2", store2);
+  std::cout<<"create env1" << std::endl;
+  NewXdbEnv(&_env[0], store1);
+  std::cout<<"created env1" << std::endl;
+  std::cout<<"create env2" << std::endl;
+  NewXdbEnv(&_env[1], store2);
+  std::cout<<"created env2" << std::endl;
+
 }
 
 Status RaidDB::OpenOrCreate(const std::string& name, Options& options) {
@@ -31,12 +38,18 @@ Status RaidDB::OpenOrCreate(const std::string& name, Options& options) {
   return s;
 }
 
-Status RaidDB::Add(const std::vector<std::pair<Slice&, Slice&>> data) {
+Status RaidDB::Add(const std::vector<std::pair<Slice, Slice>>& data) {
   WriteBatch batch;
   for (auto it = data.begin(); it < data.end(); it++) {
     batch.Put(it->first, it->second);
   }
-  return _db[_switch]->Write(WriteOptions(), &batch);
+  WriteOptions opts;
+  Status s = _db[_switch]->Write(opts, &batch);
+  rotate();
+  if(!s.ok()) {
+    s = _db[_switch]->Write(opts, &batch);
+  }
+  return s;
 }
 
 std::vector<Status> RaidDB::Get(const std::vector<Slice>& keys,
@@ -47,4 +60,4 @@ std::vector<Status> RaidDB::Get(const std::vector<Slice>& keys,
 
 Status RaidDB::Delete() { return Status::OK(); }
 
-int main() {}
+void RaidDB::Flush() { }

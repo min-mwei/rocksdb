@@ -428,7 +428,7 @@ EnvXdb::EnvXdb(
       Info(mylog, "[xdb] create/open container %s\n", it->second.c_str());
       _containermap[it->second] = container;
       _shadowpath = shadowpath;
-      if (!EnvWrapper::FileExists(_shadowpath).ok()) {
+      if (_shadowpath.size() > 0 && !EnvWrapper::FileExists(_shadowpath).ok()) {
         throw shadowpath;
       }
     }

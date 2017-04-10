@@ -33,12 +33,13 @@ class RaidDB {
   Status Delete();
 
   /** Write to one storage account or another  */
-  Status Add(const std::vector<std::pair<Slice&, Slice&>> data);
+  Status Add(const std::vector<std::pair<Slice, Slice>>& data);
 
   /** Read key, read from db1 and db2, merge the results.*/
   std::vector<Status> Get(const std::vector<Slice>& keys,
                           std::vector<std::string>* values);
 
+  void Flush();
 #if 0
   /** opens two iterators if possible under the cover */
   Status GetScanToken(StartKey, **token);
