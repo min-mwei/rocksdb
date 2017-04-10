@@ -48,29 +48,44 @@ void setOptions(Options& options) {
 const std::string kprefix = "key_prefix_";
 const std::string vprefix = "value_prefix_";
 
-void batchInsert(RaidDB db, int start, int size) {
-  std::vector<std::pair<Slice, Slice>> data;
+void batchInsert(RaidDB& db, int start, int size) {
+  std::vector<std::pair<std::string, std::string>> data;
   for (int i = start; i < start + size; i++) {
-    auto k = Slice(kprefix + PaddedNumber(i, 8));
-    auto v = Slice(vprefix + PaddedNumber(i, 8));
+    auto k = kprefix + PaddedNumber(i, 8);
+    auto v = vprefix + PaddedNumber(i, 8);
     data.push_back(std::make_pair(k, v));
   }
   db.Add(data);
 }
 
-void read(RaidDB db) {
-  std::vector<Slice> keys;
-  for (int i = 0; i < 5; i++) {
-    auto k = kprefix + PaddedNumber(i, 8);
-    keys.push_back(Slice(k));
+void dumpx(std::vector<std::string> values) {
+  for (const std::string& s : values) {
+    std::cout << "v: " << s << std::endl;
   }
+}
+
+void dumpx(std::vector<Slice> values) {
+  for (const Slice& s : values) {
+    std::cout << "d: " << s.ToString() << std::endl;
+  }
+}
+
+void read(RaidDB& db) {
+  std::vector<std::string> keys;
+  keys.push_back(kprefix + PaddedNumber(0, 8));
+  keys.push_back(kprefix + PaddedNumber(5, 8));
+  keys.push_back(kprefix + PaddedNumber(10, 8));
+  keys.push_back(kprefix + PaddedNumber(15, 8));
+  keys.push_back(kprefix + PaddedNumber(20, 8));
   std::vector<std::string> values;
   db.Get(keys, &values);
+  dumpx(values);
 }
 
 int main(int argc, char* argv[]) {
   if (argc < 5) {
-    std::cout << " program dbconn1 dbcontainer1 dbconn2 dbcontainer2 dbname" << std::endl;
+    std::cout << " program dbconn1 dbcontainer1 dbconn2 dbcontainer2 dbname"
+              << std::endl;
     exit(-1);
   }
   std::string dbconn1 = argv[1];
@@ -83,15 +98,16 @@ int main(int argc, char* argv[]) {
   store1.push_back(std::make_pair(dbconn1, dbcontainer1));
   store2.push_back(std::make_pair(dbconn2, dbcontainer2));
 
-  RaidDB raiddb(store1,store2);
+  RaidDB raiddb(store1, store2);
   Options options;
   setOptions(options);
   Status s = raiddb.OpenOrCreate(argv[5], options);
   assert(s.ok());
 
-  for(int i = 0; i < 6; i++) {
-    batchInsert(raiddb, i * 10, 10);
+  for (int i = 0; i < 6; i++) {
+    batchInsert(raiddb, i * 5, 5);
   }
-
+  // raiddb.Flush();
+  read(raiddb);
   return 0;
 }

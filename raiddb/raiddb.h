@@ -33,10 +33,10 @@ class RaidDB {
   Status Delete();
 
   /** Write to one storage account or another  */
-  Status Add(const std::vector<std::pair<Slice, Slice>>& data);
+  Status Add(const std::vector<std::pair<std::string, std::string>>& data);
 
   /** Read key, read from db1 and db2, merge the results.*/
-  std::vector<Status> Get(const std::vector<Slice>& keys,
+  std::vector<Status> Get(const std::vector<std::string>& keys,
                           std::vector<std::string>* values);
 
   void Flush();
@@ -52,11 +52,10 @@ class RaidDB {
 #endif
 
  private:
-  void rotate() {
-    _switch = 1 - _switch;
-  }
+  void rotate() { _switch = 1 - _switch; }
+
  private:
-  DB*_db[2];
-  Env*_env[2];
-  char _switch;
+  DB* _db[2];
+  Env* _env[2];
+  unsigned char _switch;
 };

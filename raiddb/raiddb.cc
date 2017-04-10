@@ -17,15 +17,10 @@ class ConsoleLogger : public Logger {
 RaidDB::RaidDB(std::vector<std::pair<std::string, std::string>> store1,
                std::vector<std::pair<std::string, std::string>> store2)
     : _switch(0) {
-  //NewXdbEnv(&_env[0], "shadow1", store1);
-  //NewXdbEnv(&_env[1], "shadow2", store2);
-  std::cout<<"create env1" << std::endl;
+  // NewXdbEnv(&_env[0], "shadow1", store1);
+  // NewXdbEnv(&_env[1], "shadow2", store2);
   NewXdbEnv(&_env[0], store1);
-  std::cout<<"created env1" << std::endl;
-  std::cout<<"create env2" << std::endl;
   NewXdbEnv(&_env[1], store2);
-  std::cout<<"created env2" << std::endl;
-
 }
 
 Status RaidDB::OpenOrCreate(const std::string& name, Options& options) {
@@ -38,26 +33,47 @@ Status RaidDB::OpenOrCreate(const std::string& name, Options& options) {
   return s;
 }
 
-Status RaidDB::Add(const std::vector<std::pair<Slice, Slice>>& data) {
+Status RaidDB::Add(
+    const std::vector<std::pair<std::string, std::string>>& data) {
   WriteBatch batch;
   for (auto it = data.begin(); it < data.end(); it++) {
-    batch.Put(it->first, it->second);
+    const std::string& k = it->first;
+    const std::string& v = it->second;
+    batch.Put(Slice(k), Slice(v));
   }
   WriteOptions opts;
   Status s = _db[_switch]->Write(opts, &batch);
   rotate();
-  if(!s.ok()) {
+  if (!s.ok()) {
+    std::cout << "write to backup: " << (int)_switch << std::endl;
     s = _db[_switch]->Write(opts, &batch);
   }
   return s;
 }
 
-std::vector<Status> RaidDB::Get(const std::vector<Slice>& keys,
+std::vector<Status> RaidDB::Get(const std::vector<std::string>& keys,
                                 std::vector<std::string>* values) {
-  auto s = _db[0]->MultiGet(ReadOptions(), keys, values);
-  return _db[1]->MultiGet(ReadOptions(), keys, values);
+  ReadOptions opts;
+  std::vector<Slice> skeys;
+  for (const std::string& s : keys) {
+    skeys.push_back(Slice(s));
+  }
+  std::vector<std::string> values1;
+  auto s = _db[0]->MultiGet(opts, skeys, &values1);
+  std::vector<std::string> values2;
+  s = _db[1]->MultiGet(opts, skeys, &values2);
+  for (auto it1 = values1.begin(), it2 = values2.begin(); it1 < values1.end();
+       it1++, it2++) {
+    const std::string& s = *it1;
+    values->push_back(s.size() > 0 ? s : (std::string&)*it2);
+  }
+  return s;
 }
 
 Status RaidDB::Delete() { return Status::OK(); }
 
-void RaidDB::Flush() { }
+void RaidDB::Flush() {
+  FlushOptions opts;
+  _db[0]->Flush(opts);
+  _db[1]->Flush(opts);
+}
