@@ -123,14 +123,11 @@ Status RaidDB::Scan(const std::string& token, int batchSize,
   if (iters != _itermap.end()) {
     std::vector<std::pair<std::string, std::string>> kvs;
     Iterator* iter1 = iters->second.first;
-    std::cout<<"total: " << batchSize << std::endl;
     int count = walk(iter1, batchSize, kvs);
-    std::cout<<"left: " << count << std::endl;
     if(count > 0) {
       Iterator* iter2 = iters->second.second;
       count = walk(iter2, count, kvs);
     }
-    std::cout<<"exit scan with left:" << count << std::endl;
     *data = kvs;
   }
   return Status::OK();
@@ -142,7 +139,6 @@ void RaidDB::CloseScanToken(const std::string& token) {
   if (iters != _itermap.end()) {
     delete iters->second.first;
     delete iters->second.second;
-    std::cout<<"close scan iters" << std::endl;
   }
 }
 
