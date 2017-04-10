@@ -14,13 +14,20 @@ class ConsoleLogger : public Logger {
   port::Mutex lock_;
 };
 
-RaidDB::RaidDB(std::vector<std::pair<std::string, std::string>> store1,
-               std::vector<std::pair<std::string, std::string>> store2)
-    : _switch(0) {
-  // NewXdbEnv(&_env[0], "shadow1", store1);
-  // NewXdbEnv(&_env[1], "shadow2", store2);
+RaidDB::RaidDB(const std::vector<std::pair<std::string, std::string>>& store1,
+               const std::vector<std::pair<std::string, std::string>>& store2)
+    : _switch(0), _token(0) {
   NewXdbEnv(&_env[0], store1);
   NewXdbEnv(&_env[1], store2);
+}
+
+RaidDB::RaidDB(const std::vector<std::pair<std::string, std::string>>& store1,
+               const std::string& shadow1,
+               const std::vector<std::pair<std::string, std::string>>& store2,
+               const std::string& shadow2)
+    : _switch(0), _token(0) {
+  NewXdbEnv(&_env[0], shadow1, store1);
+  NewXdbEnv(&_env[1], shadow2, store2);
 }
 
 Status RaidDB::OpenOrCreate(const std::string& name, Options& options) {
@@ -45,7 +52,6 @@ Status RaidDB::Add(
   Status s = _db[_switch]->Write(opts, &batch);
   rotate();
   if (!s.ok()) {
-    std::cout << "write to backup: " << (int)_switch << std::endl;
     s = _db[_switch]->Write(opts, &batch);
   }
   return s;
@@ -70,7 +76,82 @@ std::vector<Status> RaidDB::Get(const std::vector<std::string>& keys,
   return s;
 }
 
-Status RaidDB::Delete() { return Status::OK(); }
+Status RaidDB::Seek(std::string keyprefix, std::string* token) {
+  ReadOptions opts;
+  Iterator* iter1 = _db[0]->NewIterator(opts);
+  Iterator* iter2 = _db[1]->NewIterator(opts);
+  if (iter1 == NULL && iter2 == NULL) {
+    return Status::IOError();
+  }
+  Slice slice(keyprefix);
+  if (iter1 != NULL) {
+    iter1->Seek(slice);
+  }
+  if (iter1 != NULL) {
+    iter2->Seek(slice);
+  }
+  if (!iter1->status().ok() && !iter2->status().ok()) {
+    Status st = iter1->status();
+    delete iter1;
+    delete iter2;
+    return st;
+  }
+  uint64_t num = _token++;
+  _itermap[num] = std::make_pair(iter1, iter2);
+  *token = std::to_string(num);
+  return Status::OK();
+}
+
+int walk(Iterator* iter, int batchSize,
+         std::vector<std::pair<std::string, std::string>>& kvs) {
+  int count = 0;
+  while (iter->Valid()) {
+    if (count < batchSize) {
+      kvs.push_back(
+          std::make_pair(iter->key().ToString(), iter->value().ToString()));
+    }
+    count++;
+    iter->Next();
+  }
+  return batchSize - count;
+}
+
+Status RaidDB::Scan(const std::string& token, int batchSize,
+                    std::vector<std::pair<std::string, std::string>>* data) {
+  uint64_t num = std::stoll(token);
+  auto iters = _itermap.find(num);
+  if (iters != _itermap.end()) {
+    std::vector<std::pair<std::string, std::string>> kvs;
+    Iterator* iter1 = iters->second.first;
+    std::cout<<"total: " << batchSize << std::endl;
+    int count = walk(iter1, batchSize, kvs);
+    std::cout<<"left: " << count << std::endl;
+    if(count > 0) {
+      Iterator* iter2 = iters->second.second;
+      count = walk(iter2, count, kvs);
+    }
+    std::cout<<"exit scan with left:" << count << std::endl;
+    *data = kvs;
+  }
+  return Status::OK();
+}
+
+void RaidDB::CloseScanToken(const std::string& token) {
+  uint64_t num = std::stoll(token);
+  auto iters = _itermap.find(num);
+  if (iters != _itermap.end()) {
+    delete iters->second.first;
+    delete iters->second.second;
+    std::cout<<"close scan iters" << std::endl;
+  }
+}
+
+void RaidDB::Close() {
+  delete _db[0];
+  delete _db[1];
+  delete _env[0];
+  delete _env[1];
+}
 
 void RaidDB::Flush() {
   FlushOptions opts;

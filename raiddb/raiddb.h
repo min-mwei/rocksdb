@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <functional>
 #include <iostream>
+//#include <atomic.h>
 #include <memory>
 #include <random>
 #include <thread>
@@ -23,33 +24,31 @@ using namespace rocksdb;
 
 class RaidDB {
  public:
-  RaidDB(std::vector<std::pair<std::string, std::string>> store1,
-         std::vector<std::pair<std::string, std::string>> store2);
+  RaidDB(const std::vector<std::pair<std::string, std::string>>& store1,
+         const std::vector<std::pair<std::string, std::string>>& store2);
 
-  /** returns a RocksDB object */
+  RaidDB(const std::vector<std::pair<std::string, std::string>>& store1,
+         const std::string& shadow1,
+         const std::vector<std::pair<std::string, std::string>>& store2,
+         const std::string& shadow2);
+
   Status OpenOrCreate(const std::string& name, Options& options);
 
-  /** delete rocksdb */
-  Status Delete();
+  void Close();
 
-  /** Write to one storage account or another  */
   Status Add(const std::vector<std::pair<std::string, std::string>>& data);
 
-  /** Read key, read from db1 and db2, merge the results.*/
   std::vector<Status> Get(const std::vector<std::string>& keys,
                           std::vector<std::string>* values);
 
   void Flush();
-#if 0
-  /** opens two iterators if possible under the cover */
-  Status GetScanToken(StartKey, **token);
 
-  /** Scan from db1 and db2, merge the results.  */
-  Status Scan(token, int batchsize, **vector<pair<Key, Value>>);
+  Status Seek(std::string keyprefix, std::string* token);
 
-  /** release the two iterators */
-  Status CloseScanToken(const std::string& token);
-#endif
+  Status Scan(const std::string& token, int batchsize,
+              std::vector<std::pair<std::string, std::string>>* data);
+
+  void CloseScanToken(const std::string& token);
 
  private:
   void rotate() { _switch = 1 - _switch; }
@@ -58,4 +57,6 @@ class RaidDB {
   DB* _db[2];
   Env* _env[2];
   unsigned char _switch;
+  std::atomic_uint_fast64_t _token;
+  std::map<uint64_t, std::pair<Iterator*, Iterator*>> _itermap;
 };

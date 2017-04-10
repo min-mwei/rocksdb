@@ -58,15 +58,21 @@ void batchInsert(RaidDB& db, int start, int size) {
   db.Add(data);
 }
 
-void dumpx(std::vector<std::string> values) {
+void dump(std::vector<std::string> values) {
   for (const std::string& s : values) {
     std::cout << "v: " << s << std::endl;
   }
 }
 
-void dumpx(std::vector<Slice> values) {
+void dump(std::vector<Slice> values) {
   for (const Slice& s : values) {
     std::cout << "d: " << s.ToString() << std::endl;
+  }
+}
+
+void dump(std::vector<std::pair<std::string, std::string>> data) {
+  for (auto p : data) {
+    std::cout << "k: " << p.first << " v: " << p.second << std::endl;
   }
 }
 
@@ -79,7 +85,7 @@ void read(RaidDB& db) {
   keys.push_back(kprefix + PaddedNumber(20, 8));
   std::vector<std::string> values;
   db.Get(keys, &values);
-  dumpx(values);
+  dump(values);
 }
 
 int main(int argc, char* argv[]) {
@@ -107,7 +113,13 @@ int main(int argc, char* argv[]) {
   for (int i = 0; i < 6; i++) {
     batchInsert(raiddb, i * 5, 5);
   }
-  // raiddb.Flush();
   read(raiddb);
+  std::string token;
+  raiddb.Seek(kprefix, &token);
+  std::cout<<"seek token: " << token << std::endl;
+  std::vector<std::pair<std::string, std::string>> data;
+  raiddb.Scan(token, 100, &data);
+  dump(data);
+  raiddb.CloseScanToken(token);
   return 0;
 }
