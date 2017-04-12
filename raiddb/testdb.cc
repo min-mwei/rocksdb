@@ -116,8 +116,15 @@ int main(int argc, char* argv[]) {
   read(raiddb);
   std::string token;
   raiddb.Seek(kprefix, &token);
-  std::cout<<"seek token: " << token << std::endl;
+  std::cout << "seek token: " << token << std::endl;
   std::vector<std::pair<std::string, std::string>> data;
+  std::cout << "partial order scan" << std::endl;
+  raiddb.ScanPartialOrder(token, 100, &data);
+  raiddb.CloseScanToken(token);
+  dump(data);
+  data.clear();
+  std::cout << "total order scan" << std::endl;
+  raiddb.Seek(kprefix, &token);
   raiddb.Scan(token, 100, &data);
   dump(data);
   raiddb.CloseScanToken(token);

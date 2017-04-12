@@ -116,6 +116,24 @@ int walk(Iterator* iter, int batchSize,
   return batchSize - count;
 }
 
+Status RaidDB::ScanPartialOrder(
+    const std::string& token, int batchSize,
+    std::vector<std::pair<std::string, std::string>>* data) {
+  uint64_t num = std::stoll(token);
+  auto iters = _itermap.find(num);
+  if (iters != _itermap.end()) {
+    std::vector<std::pair<std::string, std::string>> kvs;
+    Iterator* iter1 = iters->second.first;
+    int count = walk(iter1, batchSize, kvs);
+    if (count > 0) {
+      Iterator* iter2 = iters->second.second;
+      count = walk(iter2, count, kvs);
+    }
+    *data = kvs;
+  }
+  return Status::OK();
+}
+
 Status RaidDB::Scan(const std::string& token, int batchSize,
                     std::vector<std::pair<std::string, std::string>>* data) {
   uint64_t num = std::stoll(token);
@@ -123,10 +141,33 @@ Status RaidDB::Scan(const std::string& token, int batchSize,
   if (iters != _itermap.end()) {
     std::vector<std::pair<std::string, std::string>> kvs;
     Iterator* iter1 = iters->second.first;
-    int count = walk(iter1, batchSize, kvs);
-    if(count > 0) {
-      Iterator* iter2 = iters->second.second;
-      count = walk(iter2, count, kvs);
+    Iterator* iter2 = iters->second.second;
+    int count = 0;
+    while (true) {
+      if (count > batchSize) break;
+      std::string k1;
+      std::string k2;
+      if (iter1->Valid()) {
+        k1 = iter1->key().ToString();
+      }
+      if (iter2->Valid()) {
+        k2 = iter2->key().ToString();
+      }
+      if (k1.empty() && k2.empty()) break;
+      if (k1.empty()) {
+        kvs.push_back(std::make_pair(k2, iter2->value().ToString()));
+        iter2->Next();
+      } else if (k2.empty()) {
+        kvs.push_back(std::make_pair(k1, iter1->value().ToString()));
+        iter1->Next();
+      } else if (k1 <= k2) {
+        kvs.push_back(std::make_pair(k1, iter1->value().ToString()));
+        iter1->Next();
+      } else {
+        kvs.push_back(std::make_pair(k2, iter2->value().ToString()));
+        iter2->Next();
+      }
+      count++;
     }
     *data = kvs;
   }

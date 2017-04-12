@@ -48,6 +48,10 @@ class RaidDB {
   Status Scan(const std::string& token, int batchsize,
               std::vector<std::pair<std::string, std::string>>* data);
 
+  Status ScanPartialOrder(
+      const std::string& token, int batchsize,
+      std::vector<std::pair<std::string, std::string>>* data);
+
   void CloseScanToken(const std::string& token);
 
  private:
