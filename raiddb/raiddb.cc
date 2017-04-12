@@ -44,8 +44,8 @@ Status RaidDB::Add(
     const std::vector<std::pair<std::string, std::string>>& data) {
   WriteBatch batch;
   for (auto it = data.begin(); it < data.end(); it++) {
-    const std::string& k = it->first;
-    const std::string& v = it->second;
+    const std::string& k = std::move(it->first);
+    const std::string& v = std::move(it->second);
     batch.Put(Slice(k), Slice(v));
   }
   WriteOptions opts;
@@ -148,10 +148,10 @@ Status RaidDB::Scan(const std::string& token, int batchSize,
       std::string k1;
       std::string k2;
       if (iter1->Valid()) {
-        k1 = iter1->key().ToString();
+        k1 = std::move(iter1->key().ToString());
       }
       if (iter2->Valid()) {
-        k2 = iter2->key().ToString();
+        k2 = std::move(iter2->key().ToString());
       }
       if (k1.empty() && k2.empty()) break;
       if (k1.empty()) {
