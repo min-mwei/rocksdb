@@ -22,6 +22,9 @@
 
 using namespace rocksdb;
 
+extern void SetPerisistenReadCache(Env* env, Options& options,
+                                   const std::string& cache_path,
+                                   const uint64_t cache_size);
 class RaidDB {
  public:
   RaidDB(const std::vector<std::pair<std::string, std::string>>& store1,
