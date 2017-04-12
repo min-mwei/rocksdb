@@ -14,7 +14,7 @@ class ConsoleLogger : public Logger {
   port::Mutex lock_;
 };
 
-void SetPerisistenReadCache(Env* env, Options& options,
+Status SetPerisistenReadCache(Env* env, Options& options,
                             const std::string& cache_path,
                             const uint64_t cache_size) {
   Status status;
@@ -26,6 +26,7 @@ void SetPerisistenReadCache(Env* env, Options& options,
   table_options.persistent_cache = cache;
   table_options.cache_index_and_filter_blocks = true;
   options.table_factory.reset(NewBlockBasedTableFactory(table_options));
+  return status;
 }
 
 RaidDB::RaidDB(const std::vector<std::pair<std::string, std::string>>& store1,
