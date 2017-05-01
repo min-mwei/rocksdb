@@ -46,16 +46,16 @@ class RaidDB {
 
   void Flush();
 
-  Status Seek(std::string keyprefix, std::string* token);
+  Status Seek(std::string keyprefix, uint64_t* token);
 
-  Status Scan(const std::string& token, int batchsize,
+  Status Scan(const uint64_t token, int batchsize,
               std::vector<std::pair<std::string, std::string>>* data);
 
   Status ScanPartialOrder(
-      const std::string& token, int batchsize,
+      const uint64_t token, int batchsize,
       std::vector<std::pair<std::string, std::string>>* data);
 
-  void CloseScanToken(const std::string& token);
+  void CloseScanToken(const uint64_t token);
 
  private:
   void rotate() { _switch = 1 - _switch; }

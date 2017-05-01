@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
     batchInsert(raiddb, i * 5, 5);
   }
   read(raiddb);
-  std::string token;
+  uint64_t token;
   raiddb.Seek(kprefix, &token);
   std::cout << "seek token: " << token << std::endl;
   std::vector<std::pair<std::string, std::string>> data;

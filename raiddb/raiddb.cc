@@ -91,7 +91,7 @@ std::vector<Status> RaidDB::Get(const std::vector<std::string>& keys,
   return s;
 }
 
-Status RaidDB::Seek(std::string keyprefix, std::string* token) {
+Status RaidDB::Seek(std::string keyprefix, uint64_t* token) {
   ReadOptions opts;
   Iterator* iter1 = _db[0]->NewIterator(opts);
   Iterator* iter2 = _db[1]->NewIterator(opts);
@@ -113,7 +113,7 @@ Status RaidDB::Seek(std::string keyprefix, std::string* token) {
   }
   uint64_t num = _token++;
   _itermap[num] = std::make_pair(iter1, iter2);
-  *token = std::to_string(num);
+  *token = num;
   return Status::OK();
 }
 
@@ -132,9 +132,9 @@ int walk(Iterator* iter, int batchSize,
 }
 
 Status RaidDB::ScanPartialOrder(
-    const std::string& token, int batchSize,
+    const uint64_t token, int batchSize,
     std::vector<std::pair<std::string, std::string>>* data) {
-  uint64_t num = std::stoll(token);
+  uint64_t num = token;
   auto iters = _itermap.find(num);
   if (iters != _itermap.end()) {
     std::vector<std::pair<std::string, std::string>> kvs;
@@ -149,9 +149,9 @@ Status RaidDB::ScanPartialOrder(
   return Status::OK();
 }
 
-Status RaidDB::Scan(const std::string& token, int batchSize,
+Status RaidDB::Scan(const uint64_t token, int batchSize,
                     std::vector<std::pair<std::string, std::string>>* data) {
-  uint64_t num = std::stoll(token);
+  uint64_t num = token;
   auto iters = _itermap.find(num);
   if (iters != _itermap.end()) {
     std::vector<std::pair<std::string, std::string>> kvs;
@@ -189,8 +189,8 @@ Status RaidDB::Scan(const std::string& token, int batchSize,
   return Status::OK();
 }
 
-void RaidDB::CloseScanToken(const std::string& token) {
-  uint64_t num = std::stoll(token);
+void RaidDB::CloseScanToken(const uint64_t token) {
+  uint64_t num = token;
   auto iters = _itermap.find(num);
   if (iters != _itermap.end()) {
     delete iters->second.first;
