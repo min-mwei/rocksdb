@@ -15,8 +15,8 @@ class ConsoleLogger : public Logger {
 };
 
 Status SetPerisistenReadCache(Env* env, Options& options,
-                            const std::string& cache_path,
-                            const uint64_t cache_size) {
+                              const std::string& cache_path,
+                              const uint64_t cache_size) {
   Status status;
   auto log = std::make_shared<ConsoleLogger>();
   std::shared_ptr<PersistentCache> cache;
