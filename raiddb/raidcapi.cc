@@ -106,6 +106,12 @@ extern "C" SERVERDLL_API int Get(RaidDB* raiddb, int size, const char** keyptrs,
 	return 0;
 }
 
+extern "C" SERVERDLL_API void FreeGet(char* valuesbuf, int* valuelensptr)
+{
+	delete[] valuesbuf;
+	delete[] valuelensptr;
+}
+
 extern "C" SERVERDLL_API int Seek(RaidDB* raiddb, const char* keyprefix, uint64_t* token)
 {
 	uint64_t tok;

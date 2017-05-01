@@ -31,6 +31,9 @@ namespace testintegration
         public static extern int Get(IntPtr raiddb, int length, IntPtr[] keyptrs, int[] keylens, out IntPtr valueptrs, out IntPtr valuelens);
 
         [DllImport("raiddb.dll")]
+        public static extern void FreeGet(IntPtr valueptrs, IntPtr valuelens);
+
+        [DllImport("raiddb.dll")]
         public static extern int Seek(IntPtr raiddb, string keyprefix, out long token);
 
         [DllImport("raiddb.dll")]
@@ -121,6 +124,7 @@ namespace testintegration
             {
                 keyhandles[i].Free();
             }
+            FreeGet(valueptrs, valuelensptr);
         }
 
         public void Seek(string prefix, out long token)
