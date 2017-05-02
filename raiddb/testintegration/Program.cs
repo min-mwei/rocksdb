@@ -44,14 +44,18 @@ namespace testintegration
             long token;
             string kprefix = "key";
             raiddb.Seek(kprefix, out token);
-            Console.WriteLine("token:" + token);
+            Console.WriteLine("new token:" + token);
             raiddb.Scan(token, 100, out data);
             for (int i = 0; i < data.Length; i++)
             {
                 Console.WriteLine("get key: " + Encoding.ASCII.GetString(data[i].Item1));
                 Console.WriteLine("get value: " + Encoding.ASCII.GetString(data[i].Item2));
             }
-            raiddb.ScanPartialOrder(token, 100, out data);
+            raiddb.CloseScanToken(token);
+            Console.WriteLine("token:" + token);
+            raiddb.Seek(kprefix, out token);
+            Console.WriteLine("new token:" + token);
+            raiddb.Scan(token, "key2#6", 100, out data);
             for (int i = 0; i < data.Length; i++)
             {
                 Console.WriteLine("get key: " + Encoding.ASCII.GetString(data[i].Item1));

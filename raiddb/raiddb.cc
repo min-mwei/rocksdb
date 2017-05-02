@@ -117,74 +117,87 @@ Status RaidDB::Seek(std::string keyprefix, uint64_t* token) {
   return Status::OK();
 }
 
-int walk(Iterator* iter, int batchSize,
-         std::vector<std::pair<std::string, std::string>>& kvs) {
-  int count = 0;
-  while (iter->Valid()) {
-    if (count < batchSize) {
-      kvs.push_back(
-          std::make_pair(iter->key().ToString(), iter->value().ToString()));
-    }
-    count++;
-    iter->Next();
-  }
-  return batchSize - count;
-}
-
-Status RaidDB::ScanPartialOrder(
-    const uint64_t token, int batchSize,
-    std::vector<std::pair<std::string, std::string>>* data) {
-  uint64_t num = token;
-  auto iters = _itermap.find(num);
-  if (iters != _itermap.end()) {
-    std::vector<std::pair<std::string, std::string>> kvs;
-    Iterator* iter1 = iters->second.first;
-    int count = walk(iter1, batchSize, kvs);
-    if (count > 0) {
-      Iterator* iter2 = iters->second.second;
-      count = walk(iter2, count, kvs);
-    }
-    *data = kvs;
-  }
-  return Status::OK();
-}
-
-Status RaidDB::Scan(const uint64_t token, int batchSize,
+Status RaidDB::Scan(const uint64_t token, const char* endkey, int batchSize,
                     std::vector<std::pair<std::string, std::string>>* data) {
   uint64_t num = token;
   auto iters = _itermap.find(num);
-  if (iters != _itermap.end()) {
-    std::vector<std::pair<std::string, std::string>> kvs;
-    Iterator* iter1 = iters->second.first;
-    Iterator* iter2 = iters->second.second;
-    int count = 0;
-    while (true) {
-      if (count > batchSize) break;
-      std::string k1;
-      std::string k2;
-      if (iter1->Valid()) {
-        k1 = std::move(iter1->key().ToString());
-      }
-      if (iter2->Valid()) {
-        k2 = std::move(iter2->key().ToString());
-      }
-      if (k1.empty() && k2.empty()) break;
-      if (k1.empty()) {
-        kvs.push_back(std::make_pair(k2, iter2->value().ToString()));
-        iter2->Next();
-      } else if (k2.empty()) {
-        kvs.push_back(std::make_pair(k1, iter1->value().ToString()));
-        iter1->Next();
-      } else if (k1 <= k2) {
-        kvs.push_back(std::make_pair(k1, iter1->value().ToString()));
-        iter1->Next();
-      } else {
-        kvs.push_back(std::make_pair(k2, iter2->value().ToString()));
-        iter2->Next();
-      }
-      count++;
-    }
-    *data = kvs;
+  if (endkey == NULL) {
+	  if (iters != _itermap.end()) {
+		  std::vector<std::pair<std::string, std::string>> kvs;
+		  Iterator* iter1 = iters->second.first;
+		  Iterator* iter2 = iters->second.second;
+		  int count = 0;
+		  while (true) {
+			  if (count > batchSize) break;
+			  std::string k1;
+			  std::string k2;
+			  if (iter1->Valid()) {
+				  k1 = std::move(iter1->key().ToString());
+			  }
+			  if (iter2->Valid()) {
+				  k2 = std::move(iter2->key().ToString());
+			  }
+			  if (k1.empty() && k2.empty()) break;
+			  if (k1.empty()) {
+				  kvs.push_back(std::make_pair(k2, iter2->value().ToString()));
+				  iter2->Next();
+			  }
+			  else if (k2.empty()) {
+				  kvs.push_back(std::make_pair(k1, iter1->value().ToString()));
+				  iter1->Next();
+			  }
+			  else if (k1 <= k2) {
+				  kvs.push_back(std::make_pair(k1, iter1->value().ToString()));
+				  iter1->Next();
+			  }
+			  else {
+				  kvs.push_back(std::make_pair(k2, iter2->value().ToString()));
+				  iter2->Next();
+			  }
+			  count++;
+		  }
+		  *data = kvs;
+	  }
+  }
+  else {
+	  if (iters != _itermap.end()) {
+		  std::vector<std::pair<std::string, std::string>> kvs;
+		  Iterator* iter1 = iters->second.first;
+		  Iterator* iter2 = iters->second.second;
+		  int count = 0;
+		  while (true) {
+			  if (count > batchSize) break;
+			  std::string k1;
+			  std::string k2;
+			  if (iter1->Valid()) {
+				  k1 = std::move(iter1->key().ToString());
+				  if (k1 > endkey) { k1.clear(); }
+			  }
+			  if (iter2->Valid()) {
+				  k2 = std::move(iter2->key().ToString());
+				  if (k2 > endkey) { k2.clear(); }
+			  }
+			  if (k1.empty() && k2.empty()) break;
+			  if (k1.empty()) {
+				  kvs.push_back(std::make_pair(k2, iter2->value().ToString()));
+				  iter2->Next();
+			  }
+			  else if (k2.empty()) {
+				  kvs.push_back(std::make_pair(k1, iter1->value().ToString()));
+				  iter1->Next();
+			  }
+			  else if (k1 <= k2) {
+				  kvs.push_back(std::make_pair(k1, iter1->value().ToString()));
+				  iter1->Next();
+			  }
+			  else {
+				  kvs.push_back(std::make_pair(k2, iter2->value().ToString()));
+				  iter2->Next();
+			  }
+			  count++;
+		  }
+		  *data = kvs;
+	  }
   }
   return Status::OK();
 }

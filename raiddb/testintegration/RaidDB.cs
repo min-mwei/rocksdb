@@ -34,16 +34,16 @@ namespace testintegration
         public static extern void FreeGet(IntPtr valueptrs, IntPtr valuelens);
 
         [DllImport("raiddb.dll")]
-        public static extern int Seek(IntPtr raiddb, string keyprefix, out long token);
+        public static extern int Seek(IntPtr raiddb, string keyPrefix, out long token);
 
         [DllImport("raiddb.dll")]
         public static extern void CloseScanToken(IntPtr raiddb, long token);
 
         [DllImport("raiddb.dll")]
-        public static extern int Scan(IntPtr raiddb, long token, int batchSize, out int length, out IntPtr keyptrs, out IntPtr keylens, out IntPtr valueptrs, out IntPtr valuelens);
+        public static extern int Scan(IntPtr raiddb, long token, string endKeyPrefix, int batchSize, out int length, out IntPtr keyptrs, out IntPtr keylens, out IntPtr valueptrs, out IntPtr valuelens);
 
         [DllImport("raiddb.dll")]
-        public static extern int ScanPartialOrder(IntPtr raiddb, long token, int batchSize, out int length, out IntPtr keyptrs, out IntPtr keylens, out IntPtr valueptrs, out IntPtr valuelens);
+        public static extern int ScanPartialOrder(IntPtr raiddb, long token, string endKeyPrefix, int batchSize, out int length, out IntPtr keyptrs, out IntPtr keylens, out IntPtr valueptrs, out IntPtr valuelens);
 
         [DllImport("raiddb.dll")]
         public static extern void FreeScan(IntPtr keyptrs, IntPtr keylens, IntPtr valueptrs, IntPtr valuelens);
@@ -139,12 +139,16 @@ namespace testintegration
 
         public void Scan(long token, int batchSize, out Tuple<byte[], byte[]>[] data)
         {
+            this.Scan(token, null, batchSize, out data);
+        }
+        public void Scan(long token, string endKeyPrefix, int batchSize, out Tuple<byte[], byte[]>[] data)
+        {
             int length;
             IntPtr keyptrs;
             IntPtr keylensptr;
             IntPtr valueptrs;
             IntPtr valuelensptr;
-            Scan(raiddb_, token, batchSize, out length, out keyptrs, out keylensptr, out valueptrs, out valuelensptr);
+            Scan(raiddb_, token, endKeyPrefix, batchSize, out length, out keyptrs, out keylensptr, out valueptrs, out valuelensptr);
             int[] keylens = new int[length];
             int[] valuelens = new int[length];
             Marshal.Copy(keylensptr, keylens, 0, length);
@@ -165,32 +169,5 @@ namespace testintegration
             FreeScan(keyptrs, keylensptr, valueptrs, valuelensptr);
         }
 
-        public void ScanPartialOrder(long token, int batchSize, out Tuple<byte[], byte[]>[] data)
-        {
-            int length;
-            IntPtr keyptrs;
-            IntPtr keylensptr;
-            IntPtr valueptrs;
-            IntPtr valuelensptr;
-            ScanPartialOrder(raiddb_, token, batchSize, out length, out keyptrs, out keylensptr, out valueptrs, out valuelensptr);
-            int[] keylens = new int[length];
-            int[] valuelens = new int[length];
-            Marshal.Copy(keylensptr, keylens, 0, length);
-            Marshal.Copy(valuelensptr, valuelens, 0, length);
-            IntPtr kk = keyptrs;
-            IntPtr vv = valueptrs;
-            data = new Tuple<byte[], byte[]>[length];
-            for (int i = 0; i < length; i++)
-            {
-                byte[] k = new byte[keylens[i]];
-                Marshal.Copy(kk, k, 0, keylens[i]);
-                byte[] v = new byte[valuelens[i]];
-                Marshal.Copy(vv, v, 0, valuelens[i]);
-                kk = IntPtr.Add(kk, keylens[i]);
-                vv = IntPtr.Add(vv, valuelens[i]);
-                data[i] = new Tuple<byte[], byte[]>(k, v);
-            }
-            FreeScan(keyptrs, keylensptr, valueptrs, valuelensptr);
-        }
-    }
+   }
 }

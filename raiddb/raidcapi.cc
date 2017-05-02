@@ -145,21 +145,12 @@ void BuildScanResult(std::vector<std::pair<std::string, std::string>>& data,
   *valuelensptr = valuelens;
 }
 
-extern "C" SERVERDLL_API int Scan(RaidDB* raiddb, const uint64_t token,
+extern "C" SERVERDLL_API int Scan(RaidDB* raiddb, const uint64_t token, const char* endkey,
                                   int batchsize, int* size, char** keysptr,
                                   int** keylensptr, char** valuesptr,
                                   int** valuelensptr) {
   std::vector<std::pair<std::string, std::string>> data;
-  int code = raiddb->Scan(token, batchsize, &data).code();
-  BuildScanResult(data, size, keysptr, keylensptr, valuesptr, valuelensptr);
-  return code;
-}
-
-extern "C" SERVERDLL_API int ScanPartialOrder(
-    RaidDB* raiddb, const uint64_t token, int batchsize, int* size,
-    char** keysptr, int** keylensptr, char** valuesptr, int** valuelensptr) {
-  std::vector<std::pair<std::string, std::string>> data;
-  int code = raiddb->ScanPartialOrder(token, batchsize, &data).code();
+  int code = raiddb->Scan(token, endkey, batchsize, &data).code();
   BuildScanResult(data, size, keysptr, keylensptr, valuesptr, valuelensptr);
   return code;
 }
