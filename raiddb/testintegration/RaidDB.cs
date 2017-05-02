@@ -13,6 +13,9 @@ namespace testintegration
         public static extern IntPtr CreateRaidDB(string conn1, string container1, string conn2, string container2);
 
         [DllImport("raiddb.dll")]
+        public static extern IntPtr CreateRaidDBWithLocalShadow(string conn1, string container1, string shadow1, string conn2, string container2, string shadow2);
+
+        [DllImport("raiddb.dll")]
         public static extern void DeleteRaidDB(IntPtr raiddb);
 
         [DllImport("raiddb.dll")]
@@ -55,6 +58,13 @@ namespace testintegration
             raiddb_ = CreateRaidDB(conn1, container1, conn2, container2);
         }
 
+        public RaidDB(string conn1, string container1, string shadowpath1, string conn2, string container2, string shadowpath2)
+        {
+            if(string.IsNullOrEmpty(shadowpath1) || string.IsNullOrEmpty(shadowpath2))
+                raiddb_ = CreateRaidDB(conn1, container1, conn2, container2);
+            else 
+                raiddb_ = CreateRaidDBWithLocalShadow(conn1, container1, shadowpath1, conn2, container2, shadowpath2);
+        }
         public void Dispose()
         {
             Close(raiddb_);

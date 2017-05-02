@@ -20,6 +20,24 @@ extern "C" SERVERDLL_API RaidDB* CreateRaidDB(const char* conn1,
   return new RaidDB(store1, store2);
 }
 
+extern "C" SERVERDLL_API RaidDB* CreateRaidDBWithLocalShadow(const char* conn1,
+	const char* container1,
+	const char* shadow1,
+	const char* conn2,
+	const char* container2,
+	const char* shadow2) {
+	std::string dbconn1 = conn1;
+	std::string dbcontainer1 = container1;
+	std::string dbconn2 = conn2;
+	std::string dbcontainer2 = container2;
+
+	std::vector<std::pair<std::string, std::string>> store1;
+	std::vector<std::pair<std::string, std::string>> store2;
+	store1.push_back(std::make_pair(dbconn1, dbcontainer1));
+	store2.push_back(std::make_pair(dbconn2, dbcontainer2));
+
+	return new RaidDB(store1, std::string(shadow1), store2, std::string(shadow2));
+}
 extern "C" SERVERDLL_API void DeleteRaidDB(RaidDB* raiddb) { delete raiddb; }
 
 extern "C" SERVERDLL_API int Open(RaidDB* raiddb, const char* name) {
