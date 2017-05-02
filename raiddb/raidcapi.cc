@@ -145,10 +145,10 @@ void BuildScanResult(std::vector<std::pair<std::string, std::string>>& data,
   *valuelensptr = valuelens;
 }
 
-extern "C" SERVERDLL_API int Scan(RaidDB* raiddb, const uint64_t token, const char* endkey,
-                                  int batchsize, int* size, char** keysptr,
-                                  int** keylensptr, char** valuesptr,
-                                  int** valuelensptr) {
+extern "C" SERVERDLL_API int Scan(RaidDB* raiddb, const uint64_t token,
+                                  const char* endkey, int batchsize, int* size,
+                                  char** keysptr, int** keylensptr,
+                                  char** valuesptr, int** valuelensptr) {
   std::vector<std::pair<std::string, std::string>> data;
   int code = raiddb->Scan(token, endkey, batchsize, &data).code();
   BuildScanResult(data, size, keysptr, keylensptr, valuesptr, valuelensptr);
