@@ -12,6 +12,11 @@ namespace testintegration
     {
         static void Main(string[] args)
         {
+            Test0(args);
+            Test1(args);
+        }
+        static void Test0(string[] args)
+        {
             string conn1 = @"DefaultEndpointsProtocol=https;AccountName=xdbs0;AccountKey=ypXmqWa9WQsHveizCQBnG/WmFNYrNjNnXsbkwhCcO4Mf9ZZe/z8nWd1w6/lXFveT9K+kFAwM6Ri46uK9jLJFrg==;EndpointSuffix=core.windows.net";
             string container1 = "dbacmebin";
             string conn2 = @"DefaultEndpointsProtocol=https;AccountName=xdbs1;AccountKey=l7IHazBj2/AzSRLjyuxrO5xyBZtOp9NV3NYfPbZmfGeTTYiUd478+5L1+HahwVdgfoXcUifLsas6F8aIUC4wyg==;EndpointSuffix=core.windows.net";
@@ -36,20 +41,19 @@ namespace testintegration
 
             byte[] key1 = new byte[14] { 155, 71, 202, 201, 86, 24, 255, 250, 0, 0, 0, 0, 0, 0 };
             byte[] key2 = new byte[14] { 155, 71, 202, 201, 86, 24, 255, 250, 60, 255, 255, 255, 255, 255 };
-            byte[] xx = Encoding.ASCII.GetBytes(Encoding.ASCII.GetString(key1));
-            raiddb.Seek(Encoding.ASCII.GetString(key1), out token);
-            Console.WriteLine("new token:" + token);
-            raiddb.Scan(token, Encoding.ASCII.GetString(key2), Int32.MaxValue, out data);
-
+            raiddb.Seek(key1, out token);
+            Tuple<byte[], byte[]>[] data2;
+            raiddb.Scan(token, key2, Int32.MaxValue, out data2);
+            Console.WriteLine("data2 length:" + data2.Length);
         }
-        static void Main2(string[] args)
+        static void Test1(string[] args)
         {
             string conn1 = @"DefaultEndpointsProtocol=https;AccountName=xdbs0;AccountKey=ypXmqWa9WQsHveizCQBnG/WmFNYrNjNnXsbkwhCcO4Mf9ZZe/z8nWd1w6/lXFveT9K+kFAwM6Ri46uK9jLJFrg==;EndpointSuffix=core.windows.net";
-            string container1 = "dbacme1";
+            string container1 = "dbacmestring";
             string conn2 = @"DefaultEndpointsProtocol=https;AccountName=xdbs1;AccountKey=l7IHazBj2/AzSRLjyuxrO5xyBZtOp9NV3NYfPbZmfGeTTYiUd478+5L1+HahwVdgfoXcUifLsas6F8aIUC4wyg==;EndpointSuffix=core.windows.net";
-            string container2 = "dbacme1";
+            string container2 = "dbacmestring";
             RaidDB raiddb = new RaidDB(conn1, container1, conn2, container2);
-            raiddb.open("dbacme1/acme");
+            raiddb.open("dbacmestring/acme");
             int len = 10;
             Tuple<byte[], byte[]>[] data = new Tuple<byte[], byte[]>[len];
             for (int i = 0; i < len; i++)
@@ -75,7 +79,7 @@ namespace testintegration
 
             long token;
             string kprefix = "key";
-            raiddb.Seek(kprefix, out token);
+            raiddb.Seek(Encoding.ASCII.GetBytes(kprefix), out token);
             Console.WriteLine("new token:" + token);
             raiddb.Scan(token, 100, out data);
             for (int i = 0; i < data.Length; i++)
@@ -85,9 +89,9 @@ namespace testintegration
             }
             raiddb.CloseScanToken(token);
             Console.WriteLine("token:" + token);
-            raiddb.Seek(kprefix, out token);
+            raiddb.Seek(Encoding.ASCII.GetBytes(kprefix), out token);
             Console.WriteLine("new token:" + token);
-            raiddb.Scan(token, "key2#6", 100, out data);
+            raiddb.Scan(token, Encoding.ASCII.GetBytes("key2#6"), 100, out data);
             for (int i = 0; i < data.Length; i++)
             {
                 Console.WriteLine("get key: " + Encoding.ASCII.GetString(data[i].Item1));

@@ -37,13 +37,13 @@ namespace testintegration
         public static extern void FreeGet(IntPtr valueptrs, IntPtr valuelens);
 
         [DllImport("raiddb.dll")]
-        public static extern int Seek(IntPtr raiddb, string keyPrefix, out long token);
+        public static extern int Seek(IntPtr raiddb, IntPtr prefix, int prefixLen, out long token);
 
         [DllImport("raiddb.dll")]
         public static extern void CloseScanToken(IntPtr raiddb, long token);
 
         [DllImport("raiddb.dll")]
-        public static extern int Scan(IntPtr raiddb, long token, string endKeyPrefix, int batchSize, out int length, out IntPtr keyptrs, out IntPtr keylens, out IntPtr valueptrs, out IntPtr valuelens);
+        public static extern int Scan(IntPtr raiddb, long token, IntPtr suffix, int suffixLen, int batchSize, out int length, out IntPtr keyptrs, out IntPtr keylens, out IntPtr valueptrs, out IntPtr valuelens);
 
         [DllImport("raiddb.dll")]
         public static extern int ScanPartialOrder(IntPtr raiddb, long token, string endKeyPrefix, int batchSize, out int length, out IntPtr keyptrs, out IntPtr keylens, out IntPtr valueptrs, out IntPtr valuelens);
@@ -137,9 +137,11 @@ namespace testintegration
             FreeGet(valueptrs, valuelensptr);
         }
 
-        public void Seek(string prefix, out long token)
+        public void Seek(byte[] prefix, out long token)
         {
-            Seek(raiddb_, prefix, out token);
+            GCHandle handle = GCHandle.Alloc(prefix, GCHandleType.Pinned);
+            Seek(raiddb_, handle.AddrOfPinnedObject(), prefix.Length, out token);
+            handle.Free();
         }
 
         public void CloseScanToken(long token)
@@ -149,16 +151,18 @@ namespace testintegration
 
         public void Scan(long token, int batchSize, out Tuple<byte[], byte[]>[] data)
         {
-            this.Scan(token, null, batchSize, out data);
+            this.Scan(token, new byte[] { }, batchSize, out data);
         }
-        public void Scan(long token, string endKeyPrefix, int batchSize, out Tuple<byte[], byte[]>[] data)
+        public void Scan(long token, byte[] suffix, int batchSize, out Tuple<byte[], byte[]>[] data)
         {
             int length;
             IntPtr keyptrs;
             IntPtr keylensptr;
             IntPtr valueptrs;
             IntPtr valuelensptr;
-            Scan(raiddb_, token, endKeyPrefix, batchSize, out length, out keyptrs, out keylensptr, out valueptrs, out valuelensptr);
+            GCHandle handle = GCHandle.Alloc(suffix, GCHandleType.Pinned);
+            Scan(raiddb_, token, handle.AddrOfPinnedObject(), suffix.Length, batchSize, out length, out keyptrs, out keylensptr, out valueptrs, out valuelensptr);
+            handle.Free();
             int[] keylens = new int[length];
             int[] valuelens = new int[length];
             Marshal.Copy(keylensptr, keylens, 0, length);

@@ -48,7 +48,7 @@ class RaidDB {
 
   Status Seek(std::string keyprefix, uint64_t* token);
 
-  Status Scan(const uint64_t token, const char* endkey, int batchsize,
+  Status Scan(const uint64_t token, const std::string& endkey, int batchsize,
               std::vector<std::pair<std::string, std::string>>* data);
 
   void CloseScanToken(const uint64_t token);

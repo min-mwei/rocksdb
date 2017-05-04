@@ -117,11 +117,11 @@ Status RaidDB::Seek(std::string keyprefix, uint64_t* token) {
   return Status::OK();
 }
 
-Status RaidDB::Scan(const uint64_t token, const char* endkey, int batchSize,
+Status RaidDB::Scan(const uint64_t token, const std::string& endkey, int batchSize,
                     std::vector<std::pair<std::string, std::string>>* data) {
   uint64_t num = token;
   auto iters = _itermap.find(num);
-  if (endkey == NULL) {
+  if (endkey.size() == 0) {
     if (iters != _itermap.end()) {
       std::vector<std::pair<std::string, std::string>> kvs;
       Iterator* iter1 = iters->second.first;

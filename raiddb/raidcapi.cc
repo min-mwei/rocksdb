@@ -119,10 +119,10 @@ extern "C" SERVERDLL_API void FreeGet(char* valuesbuf, int* valuelensptr) {
   delete[] valuelensptr;
 }
 
-extern "C" SERVERDLL_API int Seek(RaidDB* raiddb, const char* keyprefix,
+extern "C" SERVERDLL_API int Seek(RaidDB* raiddb, const char* keyprefix, int len,
                                   uint64_t* token) {
   uint64_t tok;
-  int code = raiddb->Seek(keyprefix, &tok).code();
+  int code = raiddb->Seek(std::string(keyprefix, len), &tok).code();
   *token = tok;
   return code;
 }
@@ -164,11 +164,11 @@ void BuildScanResult(std::vector<std::pair<std::string, std::string>>& data,
 }
 
 extern "C" SERVERDLL_API int Scan(RaidDB* raiddb, const uint64_t token,
-                                  const char* endkey, int batchsize, int* size,
+                                  const char* endkey, int endkeylen, int batchsize, int* size,
                                   char** keysptr, int** keylensptr,
                                   char** valuesptr, int** valuelensptr) {
   std::vector<std::pair<std::string, std::string>> data;
-  int code = raiddb->Scan(token, endkey, batchsize, &data).code();
+  int code = raiddb->Scan(token, std::string(endkey, endkeylen), batchsize, &data).code();
   BuildScanResult(data, size, keysptr, keylensptr, valuesptr, valuelensptr);
   return code;
 }
