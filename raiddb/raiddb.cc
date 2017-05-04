@@ -50,7 +50,7 @@ Status RaidDB::OpenOrCreate(const std::string& name, Options& options) {
   Status s = DB::Open(options, "was:" + name, &_db[0]);
   if (s.ok()) {
     options.env = _env[1];
-    s = DB::Open(options, "was:" + name, &_db[1]);
+    s = DB::Open(options, "was:" + name + "_pair", &_db[1]);
   }
   return s;
 }
