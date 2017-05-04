@@ -9,15 +9,47 @@ namespace testintegration
 {
    
     class Program
-    {       
+    {
         static void Main(string[] args)
         {
             string conn1 = @"DefaultEndpointsProtocol=https;AccountName=xdbs0;AccountKey=ypXmqWa9WQsHveizCQBnG/WmFNYrNjNnXsbkwhCcO4Mf9ZZe/z8nWd1w6/lXFveT9K+kFAwM6Ri46uK9jLJFrg==;EndpointSuffix=core.windows.net";
-            string container1 = "dbx1";
+            string container1 = "dbacmebin";
             string conn2 = @"DefaultEndpointsProtocol=https;AccountName=xdbs1;AccountKey=l7IHazBj2/AzSRLjyuxrO5xyBZtOp9NV3NYfPbZmfGeTTYiUd478+5L1+HahwVdgfoXcUifLsas6F8aIUC4wyg==;EndpointSuffix=core.windows.net";
-            string container2 = "dbx1";
+            string container2 = "dbacmebin";
             RaidDB raiddb = new RaidDB(conn1, container1, conn2, container2);
-            raiddb.open("dbx1/acme");
+            raiddb.open("dbacmebin/acme");
+            long token;
+            Tuple<byte[], byte[]>[] data = new Tuple<byte[], byte[]>[4];
+
+            byte[] aa = new byte[14] { 155, 71, 202, 201, 86, 24, 255, 250, 10, 121, 99, 103, 69, 117 };
+
+            byte[] bb = new byte[14] { 155, 71, 202, 201, 86, 24, 255, 250, 0, 121, 99, 103, 69, 117 };
+            byte[] cc = new byte[14] { 155, 71, 202, 201, 86, 24, 255, 250, 20, 121, 99, 103, 69, 117 };
+            byte[] dd = new byte[14] { 155, 71, 202, 201, 86, 24, 255, 250, 5, 121, 99, 103, 69, 117 };
+
+            data[0] = new Tuple<byte[], byte[]>(aa, aa);
+            data[1] = new Tuple<byte[], byte[]>(bb, bb);
+            data[2] = new Tuple<byte[], byte[]>(cc, cc);
+            data[3] = new Tuple<byte[], byte[]>(dd, dd);
+
+            raiddb.Add(data);
+
+            byte[] key1 = new byte[14] { 155, 71, 202, 201, 86, 24, 255, 250, 0, 0, 0, 0, 0, 0 };
+            byte[] key2 = new byte[14] { 155, 71, 202, 201, 86, 24, 255, 250, 60, 255, 255, 255, 255, 255 };
+            byte[] xx = Encoding.ASCII.GetBytes(Encoding.ASCII.GetString(key1));
+            raiddb.Seek(Encoding.ASCII.GetString(key1), out token);
+            Console.WriteLine("new token:" + token);
+            raiddb.Scan(token, Encoding.ASCII.GetString(key2), Int32.MaxValue, out data);
+
+        }
+        static void Main2(string[] args)
+        {
+            string conn1 = @"DefaultEndpointsProtocol=https;AccountName=xdbs0;AccountKey=ypXmqWa9WQsHveizCQBnG/WmFNYrNjNnXsbkwhCcO4Mf9ZZe/z8nWd1w6/lXFveT9K+kFAwM6Ri46uK9jLJFrg==;EndpointSuffix=core.windows.net";
+            string container1 = "dbacme1";
+            string conn2 = @"DefaultEndpointsProtocol=https;AccountName=xdbs1;AccountKey=l7IHazBj2/AzSRLjyuxrO5xyBZtOp9NV3NYfPbZmfGeTTYiUd478+5L1+HahwVdgfoXcUifLsas6F8aIUC4wyg==;EndpointSuffix=core.windows.net";
+            string container2 = "dbacme1";
+            RaidDB raiddb = new RaidDB(conn1, container1, conn2, container2);
+            raiddb.open("dbacme1/acme");
             int len = 10;
             Tuple<byte[], byte[]>[] data = new Tuple<byte[], byte[]>[len];
             for (int i = 0; i < len; i++)
