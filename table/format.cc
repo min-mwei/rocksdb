@@ -2,6 +2,8 @@
 //  This source code is licensed under the BSD-style license found in the
 //  LICENSE file in the root directory of this source tree. An additional grant
 //  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is also licensed under the GPLv2 license found in the
+//  COPYING file in the root directory of this source tree.
 //
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -12,6 +14,8 @@
 #include <string>
 #include <inttypes.h>
 
+#include "monitoring/perf_context_imp.h"
+#include "monitoring/statistics.h"
 #include "rocksdb/env.h"
 #include "table/block.h"
 #include "table/block_based_table_reader.h"
@@ -21,8 +25,6 @@
 #include "util/crc32c.h"
 #include "util/file_reader_writer.h"
 #include "util/logging.h"
-#include "util/perf_context_imp.h"
-#include "util/statistics.h"
 #include "util/stop_watch.h"
 #include "util/string_util.h"
 #include "util/xxhash.h"

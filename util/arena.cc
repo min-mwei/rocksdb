@@ -2,6 +2,8 @@
 //  This source code is licensed under the BSD-style license found in the
 //  LICENSE file in the root directory of this source tree. An additional grant
 //  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is also licensed under the GPLv2 license found in the
+//  COPYING file in the root directory of this source tree.
 //
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -26,7 +28,7 @@
 namespace rocksdb {
 
 // MSVC complains that it is already defined since it is static in the header.
-#ifndef OS_WIN
+#ifndef _MSC_VER
 const size_t Arena::kInlineSize;
 #endif
 

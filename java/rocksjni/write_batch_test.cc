@@ -13,6 +13,7 @@
 #include "include/org_rocksdb_WriteBatchTest.h"
 #include "include/org_rocksdb_WriteBatchTestInternalHelper.h"
 #include "include/org_rocksdb_WriteBatch_Handler.h"
+#include "options/cf_options.h"
 #include "rocksdb/db.h"
 #include "rocksdb/env.h"
 #include "rocksdb/memtablerep.h"
@@ -21,8 +22,7 @@
 #include "rocksdb/write_buffer_manager.h"
 #include "rocksjni/portal.h"
 #include "table/scoped_arena_iterator.h"
-#include "util/cf_options.h"
-#include "util/logging.h"
+#include "util/string_util.h"
 #include "util/testharness.h"
 
 /*

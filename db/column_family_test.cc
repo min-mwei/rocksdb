@@ -15,13 +15,13 @@
 
 #include "db/db_impl.h"
 #include "db/db_test_util.h"
+#include "options/options_parser.h"
 #include "port/port.h"
 #include "rocksdb/db.h"
 #include "rocksdb/env.h"
 #include "rocksdb/iterator.h"
 #include "util/coding.h"
 #include "util/fault_injection_test_env.h"
-#include "util/options_parser.h"
 #include "util/string_util.h"
 #include "util/sync_point.h"
 #include "util/testharness.h"
@@ -674,6 +674,38 @@ TEST_F(ColumnFamilyTest, AddDrop) {
   std::sort(families.begin(), families.end());
   ASSERT_TRUE(families ==
               std::vector<std::string>({"default", "four", "three"}));
+}
+
+TEST_F(ColumnFamilyTest, BulkAddDrop) {
+  constexpr int kNumCF = 1000;
+  ColumnFamilyOptions cf_options;
+  WriteOptions write_options;
+  Open();
+  std::vector<std::string> cf_names;
+  std::vector<ColumnFamilyHandle*> cf_handles;
+  for (int i = 1; i <= kNumCF; i++) {
+    cf_names.push_back("cf1-" + ToString(i));
+  }
+  ASSERT_OK(db_->CreateColumnFamilies(cf_options, cf_names, &cf_handles));
+  for (int i = 1; i <= kNumCF; i++) {
+    ASSERT_OK(db_->Put(write_options, cf_handles[i - 1], "foo", "bar"));
+  }
+  ASSERT_OK(db_->DropColumnFamilies(cf_handles));
+  std::vector<ColumnFamilyDescriptor> cf_descriptors;
+  cf_handles.clear();
+  for (int i = 1; i <= kNumCF; i++) {
+    cf_descriptors.emplace_back("cf2-" + ToString(i), ColumnFamilyOptions());
+  }
+  ASSERT_OK(db_->CreateColumnFamilies(cf_descriptors, &cf_handles));
+  for (int i = 1; i <= kNumCF; i++) {
+    ASSERT_OK(db_->Put(write_options, cf_handles[i - 1], "foo", "bar"));
+  }
+  ASSERT_OK(db_->DropColumnFamilies(cf_handles));
+  Close();
+  std::vector<std::string> families;
+  ASSERT_OK(DB::ListColumnFamilies(db_options_, dbname_, &families));
+  std::sort(families.begin(), families.end());
+  ASSERT_TRUE(families == std::vector<std::string>({"default"}));
 }
 
 TEST_F(ColumnFamilyTest, DropTest) {
@@ -1731,7 +1763,7 @@ TEST_F(ColumnFamilyTest, SameCFManualAutomaticCompactionsLevel) {
 
   one.num_levels = 1;
   // trigger compaction if there are >= 4 files
-  one.level0_file_num_compaction_trigger = 4;
+  one.level0_file_num_compaction_trigger = 3;
   one.write_buffer_size = 120000;
 
   Reopen({default_cf, one});

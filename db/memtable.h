@@ -2,6 +2,8 @@
 //  This source code is licensed under the BSD-style license found in the
 //  LICENSE file in the root directory of this source tree. An additional grant
 //  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is also licensed under the GPLv2 license found in the
+//  COPYING file in the root directory of this source tree.
 //
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -16,18 +18,17 @@
 #include <unordered_map>
 #include <vector>
 #include "db/dbformat.h"
-#include "db/memtable_allocator.h"
 #include "db/range_del_aggregator.h"
-#include "db/skiplist.h"
 #include "db/version_edit.h"
+#include "memtable/memtable_allocator.h"
+#include "monitoring/instrumented_mutex.h"
+#include "options/cf_options.h"
 #include "rocksdb/db.h"
 #include "rocksdb/env.h"
 #include "rocksdb/memtablerep.h"
-#include "util/cf_options.h"
 #include "util/concurrent_arena.h"
 #include "util/dynamic_bloom.h"
 #include "util/hash.h"
-#include "util/instrumented_mutex.h"
 
 namespace rocksdb {
 

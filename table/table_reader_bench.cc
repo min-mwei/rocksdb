@@ -2,6 +2,8 @@
 //  This source code is licensed under the BSD-style license found in the
 //  LICENSE file in the root directory of this source tree. An additional grant
 //  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is also licensed under the GPLv2 license found in the
+//  COPYING file in the root directory of this source tree.
 
 #ifndef GFLAGS
 #include <cstdio>
@@ -13,18 +15,18 @@ int main() {
 
 #include <gflags/gflags.h>
 
+#include "db/db_impl.h"
+#include "db/dbformat.h"
+#include "monitoring/histogram.h"
 #include "rocksdb/db.h"
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/table.h"
-#include "db/db_impl.h"
-#include "db/dbformat.h"
 #include "table/block_based_table_factory.h"
+#include "table/get_context.h"
 #include "table/internal_iterator.h"
 #include "table/plain_table_factory.h"
 #include "table/table_builder.h"
-#include "table/get_context.h"
 #include "util/file_reader_writer.h"
-#include "util/histogram.h"
 #include "util/testharness.h"
 #include "util/testutil.h"
 

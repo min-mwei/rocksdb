@@ -2,6 +2,8 @@
 //  This source code is licensed under the BSD-style license found in the
 //  LICENSE file in the root directory of this source tree. An additional grant
 //  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is also licensed under the GPLv2 license found in the
+//  COPYING file in the root directory of this source tree.
 //
 #include <stdio.h>
 #include <algorithm>
@@ -12,8 +14,8 @@
 #include <vector>
 
 #include "db/dbformat.h"
-#include "db/memtable.h"
 #include "db/write_batch_internal.h"
+#include "db/memtable.h"
 #include "rocksdb/db.h"
 #include "rocksdb/env.h"
 #include "rocksdb/iterator.h"
