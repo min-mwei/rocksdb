@@ -44,23 +44,22 @@ extern "C" SERVERDLL_API int Open(RaidDB* raiddb, const char* name) {
   Options options;
   options.IncreaseParallelism();
   options.compaction_style = kCompactionStyleUniversal;
-#if 0
-        options.num_levels = 4;
-        options.write_buffer_size = (uint64_t)(4.0 * 1024 * 1024 * 1024);
-        options.max_bytes_for_level_base = (uint64_t)(4.0 * 1024 * 1024 * 1024);
-        options.level0_file_num_compaction_trigger = 4;
-        options.level0_slowdown_writes_trigger = 50;
-        options.min_write_buffer_number_to_merge = 8;
-        options.max_write_buffer_number = 16;
-        options.target_file_size_base = (int)(1.5 * 1024 * 1024 * 1024);
-        options.max_subcompactions = 16;
-        options.max_background_compactions = 32;
-        options.max_background_flushes = 32;
-        options.writable_file_max_buffer_size = (int)(1.5 * 1024 * 1024 * 1024);
-        options.base_background_compactions = 8;
-        options.OptimizeUniversalStyleCompaction(
-                (uint64_t)(4.0 * 1024 * 1024 * 1024));
-#endif
+  options.num_levels = 4;
+  options.write_buffer_size = (uint64_t)(4.0 * 1024 * 1024 * 1024);
+  options.max_bytes_for_level_base = (uint64_t)(4.0 * 1024 * 1024 * 1024);
+  options.level0_file_num_compaction_trigger = 4;
+  options.level0_slowdown_writes_trigger = 50;
+  options.min_write_buffer_number_to_merge = 8;
+  options.max_write_buffer_number = 16;
+  options.target_file_size_base = (int)(1.5 * 1024 * 1024 * 1024);
+  options.max_subcompactions = 16;
+  options.max_background_compactions = 32;
+  options.max_background_flushes = 32;
+  options.writable_file_max_buffer_size = (int)(1.5 * 1024 * 1024 * 1024);
+  options.base_background_compactions = 8;
+  options.OptimizeUniversalStyleCompaction(
+	  (uint64_t)(4.0 * 1024 * 1024 * 1024));
+
   options.create_if_missing = true;
   Status s = raiddb->OpenOrCreate(name, options);
   return s.code();
@@ -111,7 +110,7 @@ extern "C" SERVERDLL_API int Get(RaidDB* raiddb, int size, const char** keyptrs,
   }
   *valuesptr = valuesbuf;
   *valuelensptr = valuelens;
-  return 0;
+  return status[0].code();
 }
 
 extern "C" SERVERDLL_API void FreeGet(char* valuesbuf, int* valuelensptr) {
