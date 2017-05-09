@@ -7,7 +7,16 @@ using System.Threading.Tasks;
 
 namespace testintegration
 {
-    class RaidDB : IDisposable
+    public class RaidDBException : Exception  {
+        int code;
+
+        public RaidDBException(int code)
+        {
+            this.code = code;
+        }
+    }
+
+    public class RaidDB : IDisposable
     {
         [DllImport("raiddb.dll")]
         public static extern IntPtr CreateRaidDB(string conn1, string container1, string conn2, string container2);
@@ -97,11 +106,19 @@ namespace testintegration
                 valueptrs[i] = valuehandles[i].AddrOfPinnedObject();
                 valuelens[i] = data[i].Item2.Length;
             }
-            Add(raiddb_, data.Length, keyptrs, keylens, valueptrs, valuelens);
-            for (int i = 0; i < data.Length; i++)
+            try
             {
-                keyhandles[i].Free();
-                valuehandles[i].Free();
+                int code = Add(raiddb_, data.Length, keyptrs, keylens, valueptrs, valuelens);
+                if (code != 0)
+                    throw new RaidDBException(code);
+            }
+            finally
+            {
+                for (int i = 0; i < data.Length; i++)
+                {
+                    keyhandles[i].Free();
+                    valuehandles[i].Free();
+                }
             }
         }
 
@@ -116,32 +133,47 @@ namespace testintegration
                 keyptrs[i] = keyhandles[i].AddrOfPinnedObject();
                 keylens[i] = keys[i].Item1.Length;
             }
-            IntPtr valueptrs;
-            IntPtr valuelensptr;
-            Get(raiddb_, keys.Length, keyptrs, keylens, out valueptrs, out valuelensptr);
-            int[] valuelens = new int[keys.Length];
-            Marshal.Copy(valuelensptr, valuelens, 0, keys.Length);
-            IntPtr valueptr = valueptrs;
-            values = new Tuple<byte[]>[keys.Length];
-            for (int i = 0; i < keys.Length; i++)
+            IntPtr valueptrs = IntPtr.Zero;
+            IntPtr valuelensptr = IntPtr.Zero;
+            try
             {
-                byte[] v = new byte[valuelens[i]];
-                Marshal.Copy(valueptr, v, 0, valuelens[i]);
-                values[i] = new Tuple<byte[]>(v);
-                valueptr = IntPtr.Add(valueptr, valuelens[i]);
+                int code = Get(raiddb_, keys.Length, keyptrs, keylens, out valueptrs, out valuelensptr);
+                if (code != 0)
+                    throw new RaidDBException(code);
+                int[] valuelens = new int[keys.Length];
+                Marshal.Copy(valuelensptr, valuelens, 0, keys.Length);
+                IntPtr valueptr = valueptrs;
+                values = new Tuple<byte[]>[keys.Length];
+                for (int i = 0; i < keys.Length; i++)
+                {
+                    byte[] v = new byte[valuelens[i]];
+                    Marshal.Copy(valueptr, v, 0, valuelens[i]);
+                    values[i] = new Tuple<byte[]>(v);
+                    valueptr = IntPtr.Add(valueptr, valuelens[i]);
+                }
             }
-            for (int i = 0; i < keys.Length; i++)
+            finally
             {
-                keyhandles[i].Free();
+                for (int i = 0; i < keys.Length; i++)
+                {
+                    keyhandles[i].Free();
+                }
+                FreeGet(valueptrs, valuelensptr);
             }
-            FreeGet(valueptrs, valuelensptr);
         }
 
         public void Seek(byte[] prefix, out long token)
         {
             GCHandle handle = GCHandle.Alloc(prefix, GCHandleType.Pinned);
-            Seek(raiddb_, handle.AddrOfPinnedObject(), prefix.Length, out token);
-            handle.Free();
+            try
+            {
+                int code = Seek(raiddb_, handle.AddrOfPinnedObject(), prefix.Length, out token);
+                if (code != 0)
+                    throw new RaidDBException(code);
+            } finally
+            {
+                handle.Free();
+            }
         }
 
         public void CloseScanToken(long token)
@@ -156,31 +188,38 @@ namespace testintegration
         public void Scan(long token, byte[] suffix, int batchSize, out Tuple<byte[], byte[]>[] data)
         {
             int length;
-            IntPtr keyptrs;
-            IntPtr keylensptr;
-            IntPtr valueptrs;
-            IntPtr valuelensptr;
+            IntPtr keyptrs = IntPtr.Zero;
+            IntPtr keylensptr = IntPtr.Zero;
+            IntPtr valueptrs = IntPtr.Zero;
+            IntPtr valuelensptr = IntPtr.Zero;
             GCHandle handle = GCHandle.Alloc(suffix, GCHandleType.Pinned);
-            Scan(raiddb_, token, handle.AddrOfPinnedObject(), suffix.Length, batchSize, out length, out keyptrs, out keylensptr, out valueptrs, out valuelensptr);
-            handle.Free();
-            int[] keylens = new int[length];
-            int[] valuelens = new int[length];
-            Marshal.Copy(keylensptr, keylens, 0, length);
-            Marshal.Copy(valuelensptr, valuelens, 0, length);
-            IntPtr kk = keyptrs;
-            IntPtr vv = valueptrs;
-            data = new Tuple<byte[], byte[]>[length];
-            for (int i = 0; i < length; i++)
+            try
             {
-                byte[] k = new byte[keylens[i]];
-                Marshal.Copy(kk, k, 0, keylens[i]);
-                byte[] v = new byte[valuelens[i]];
-                Marshal.Copy(vv, v, 0, valuelens[i]);
-                kk = IntPtr.Add(kk, keylens[i]);
-                vv = IntPtr.Add(vv, valuelens[i]);
-                data[i] = new Tuple<byte[], byte[]>(k, v);
+                int code = Scan(raiddb_, token, handle.AddrOfPinnedObject(), suffix.Length, batchSize, out length, out keyptrs, out keylensptr, out valueptrs, out valuelensptr);
+                if (code != 0)
+                    throw new RaidDBException(code);
+                handle.Free();
+                int[] keylens = new int[length];
+                int[] valuelens = new int[length];
+                Marshal.Copy(keylensptr, keylens, 0, length);
+                Marshal.Copy(valuelensptr, valuelens, 0, length);
+                IntPtr kk = keyptrs;
+                IntPtr vv = valueptrs;
+                data = new Tuple<byte[], byte[]>[length];
+                for (int i = 0; i < length; i++)
+                {
+                    byte[] k = new byte[keylens[i]];
+                    Marshal.Copy(kk, k, 0, keylens[i]);
+                    byte[] v = new byte[valuelens[i]];
+                    Marshal.Copy(vv, v, 0, valuelens[i]);
+                    kk = IntPtr.Add(kk, keylens[i]);
+                    vv = IntPtr.Add(vv, valuelens[i]);
+                    data[i] = new Tuple<byte[], byte[]>(k, v);
+                }
+            } finally
+            {
+                FreeScan(keyptrs, keylensptr, valueptrs, valuelensptr);
             }
-            FreeScan(keyptrs, keylensptr, valueptrs, valuelensptr);
         }
 
    }
