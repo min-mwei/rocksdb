@@ -18,11 +18,11 @@ namespace testintegration
         static void Test0(string[] args)
         {
             string conn1 = @"DefaultEndpointsProtocol=https;AccountName=xdbs0;AccountKey=ypXmqWa9WQsHveizCQBnG/WmFNYrNjNnXsbkwhCcO4Mf9ZZe/z8nWd1w6/lXFveT9K+kFAwM6Ri46uK9jLJFrg==;EndpointSuffix=core.windows.net";
-            string container1 = "dbacmebin";
+            string container1 = "dbacmebin2";
             string conn2 = @"DefaultEndpointsProtocol=https;AccountName=xdbs1;AccountKey=l7IHazBj2/AzSRLjyuxrO5xyBZtOp9NV3NYfPbZmfGeTTYiUd478+5L1+HahwVdgfoXcUifLsas6F8aIUC4wyg==;EndpointSuffix=core.windows.net";
-            string container2 = "dbacmebin";
+            string container2 = "dbacmebin2";
             RaidDB raiddb = new RaidDB(conn1, container1, conn2, container2);
-            raiddb.open("dbacmebin/acme");
+            raiddb.open("dbacmebin2/acme");
             long token;
             Tuple<byte[], byte[]>[] data = new Tuple<byte[], byte[]>[4];
 
@@ -49,11 +49,11 @@ namespace testintegration
         static void Test1(string[] args)
         {
             string conn1 = @"DefaultEndpointsProtocol=https;AccountName=xdbs0;AccountKey=ypXmqWa9WQsHveizCQBnG/WmFNYrNjNnXsbkwhCcO4Mf9ZZe/z8nWd1w6/lXFveT9K+kFAwM6Ri46uK9jLJFrg==;EndpointSuffix=core.windows.net";
-            string container1 = "dbacmestring";
+            string container1 = "dbacmestring2";
             string conn2 = @"DefaultEndpointsProtocol=https;AccountName=xdbs1;AccountKey=l7IHazBj2/AzSRLjyuxrO5xyBZtOp9NV3NYfPbZmfGeTTYiUd478+5L1+HahwVdgfoXcUifLsas6F8aIUC4wyg==;EndpointSuffix=core.windows.net";
-            string container2 = "dbacmestring";
+            string container2 = "dbacmestring2";
             RaidDB raiddb = new RaidDB(conn1, container1, conn2, container2);
-            raiddb.open("dbacmestring/acme");
+            raiddb.open("dbacmestring2/acme");
             int len = 10;
             Tuple<byte[], byte[]>[] data = new Tuple<byte[], byte[]>[len];
             for (int i = 0; i < len; i++)

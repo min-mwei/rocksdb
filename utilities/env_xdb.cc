@@ -236,7 +236,7 @@ class XdbWritableFile : public WritableFile {
         _iofail(false) {
     Log(InfoLogLevel::DEBUG_LEVEL, mylog,
         "[xdb] XdbWritableFile opening file %s\n", page_blob.name().c_str());
-    _page_blob.create(4 * 1024 * 1024);
+    _page_blob.create(4 * 1024);
     std::string name = xdb_to_utf8string(_page_blob.name());
     _shadow = nullptr;
   }
