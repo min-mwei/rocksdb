@@ -55,6 +55,25 @@ Status RaidDB::OpenOrCreate(const std::string& name, Options& options) {
   return s;
 }
 
+Status RaidDB::OpenOrCreateWithWAL(const std::string& name, Options& options, const std::string& waldir)
+{
+	options.env = _env[0];
+	options.wal_dir = ("was:" + waldir).c_str();
+	Status s; 
+	try {
+		s = DB::Open(options, "was:" + name, &_db[0]);
+		if (s.ok()) {
+			options.env = _env[1];
+			options.wal_dir = ("was:" + waldir + "_pair").c_str();
+			s = DB::Open(options, "was:" + name + "_pair", &_db[1]);
+		}
+	}
+	catch (std::exception& e) {
+		std::cout << "e:" << e.what() << std::endl;
+	}
+	return s;
+}
+
 Status RaidDB::Add(
     const std::vector<std::pair<std::string, std::string>>& data) {
   WriteBatch batch;

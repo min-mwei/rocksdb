@@ -37,6 +37,8 @@ class RaidDB {
 
   Status OpenOrCreate(const std::string& name, Options& options);
 
+  Status OpenOrCreateWithWAL(const std::string& name, Options& options, const std::string& waldir);
+  
   void Close();
 
   Status Add(const std::vector<std::pair<std::string, std::string>>& data);

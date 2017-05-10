@@ -12,8 +12,10 @@ namespace testintegration
     {
         static void Main(string[] args)
         {
-            Test0(args);
-            Test1(args);
+            //Test0(args);
+            //Test1(args);
+            //Test2(args);
+            Test3(args);
         }
         static void Test0(string[] args)
         {
@@ -52,7 +54,8 @@ namespace testintegration
             string container1 = "dbacmestring2";
             string conn2 = @"DefaultEndpointsProtocol=https;AccountName=xdbs1;AccountKey=l7IHazBj2/AzSRLjyuxrO5xyBZtOp9NV3NYfPbZmfGeTTYiUd478+5L1+HahwVdgfoXcUifLsas6F8aIUC4wyg==;EndpointSuffix=core.windows.net";
             string container2 = "dbacmestring2";
-            RaidDB raiddb = new RaidDB(conn1, container1, conn2, container2);
+            //RaidDB raiddb = new RaidDB(conn1, container1, conn2, container2);
+            RaidDB raiddb = new RaidDB(conn1, container1, "s1", conn2, container2, "s2");
             raiddb.open("dbacmestring2/acme");
             int len = 10;
             Tuple<byte[], byte[]>[] data = new Tuple<byte[], byte[]>[len];
@@ -72,6 +75,94 @@ namespace testintegration
             
             raiddb.Get(keys, out values);
             for(int i = 0; i < values.Length; i++)
+            {
+                Console.WriteLine("get value: " + Encoding.ASCII.GetString(values[i].Item1));
+            }
+            raiddb.Flush();
+
+            long token;
+            string kprefix = "key";
+            raiddb.Seek(Encoding.ASCII.GetBytes(kprefix), out token);
+            Console.WriteLine("new token:" + token);
+            raiddb.Scan(token, 100, out data);
+            for (int i = 0; i < data.Length; i++)
+            {
+                Console.WriteLine("get key: " + Encoding.ASCII.GetString(data[i].Item1));
+                Console.WriteLine("get value: " + Encoding.ASCII.GetString(data[i].Item2));
+            }
+            raiddb.CloseScanToken(token);
+            Console.WriteLine("token:" + token);
+            raiddb.Seek(Encoding.ASCII.GetBytes(kprefix), out token);
+            Console.WriteLine("new token:" + token);
+            raiddb.Scan(token, Encoding.ASCII.GetBytes("key2#6"), 100, out data);
+            for (int i = 0; i < data.Length; i++)
+            {
+                Console.WriteLine("get key: " + Encoding.ASCII.GetString(data[i].Item1));
+                Console.WriteLine("get value: " + Encoding.ASCII.GetString(data[i].Item2));
+            }
+            raiddb.CloseScanToken(token);
+            raiddb.Dispose();
+        }
+
+        public static string ByteArrayToString(byte[] ba)
+        {
+            string hex = BitConverter.ToString(ba);
+            return hex.Replace("-", "");
+        }
+        static void Test2(string[] args)
+        {
+            string conn1 = @"DefaultEndpointsProtocol=https;AccountName=xdbs0;AccountKey=ypXmqWa9WQsHveizCQBnG/WmFNYrNjNnXsbkwhCcO4Mf9ZZe/z8nWd1w6/lXFveT9K+kFAwM6Ri46uK9jLJFrg==;EndpointSuffix=core.windows.net";
+            string container1 = "dbx2";
+            string conn2 = @"DefaultEndpointsProtocol=https;AccountName=xdbs1;AccountKey=l7IHazBj2/AzSRLjyuxrO5xyBZtOp9NV3NYfPbZmfGeTTYiUd478+5L1+HahwVdgfoXcUifLsas6F8aIUC4wyg==;EndpointSuffix=core.windows.net";
+            string container2 = "dbx2";
+            RaidDB raiddb = new RaidDB(conn1, container1, conn2, container2);
+            Console.WriteLine("open db");
+            raiddb.open("dbx2/acme");
+            long token;
+            byte[] key1 = new byte[2] { 0, 0 };
+            byte[] key2 = new byte[2] { 255, 255 };
+            raiddb.Seek(key1, out token);
+            Console.WriteLine("seek token:" + token);
+            Tuple<byte[], byte[]>[] data;
+            Console.WriteLine("scan");
+            raiddb.Scan(token, key2, 10, out data);
+            Console.WriteLine("data length:" + data.Length);
+            for (int i = 0; i < data.Length; i++)
+            {
+                Console.WriteLine("key {0} value {1}", ByteArrayToString(data[i].Item1), ByteArrayToString(data[i].Item2));
+            }
+        }
+
+        static void Test3(string[] args)
+        {
+            string conn1 = @"DefaultEndpointsProtocol=https;AccountName=xdbs0;AccountKey=ypXmqWa9WQsHveizCQBnG/WmFNYrNjNnXsbkwhCcO4Mf9ZZe/z8nWd1w6/lXFveT9K+kFAwM6Ri46uK9jLJFrg==;EndpointSuffix=core.windows.net";
+            string container1 = "dbacmestring0";
+            string conn2 = @"DefaultEndpointsProtocol=https;AccountName=xdbs1;AccountKey=l7IHazBj2/AzSRLjyuxrO5xyBZtOp9NV3NYfPbZmfGeTTYiUd478+5L1+HahwVdgfoXcUifLsas6F8aIUC4wyg==;EndpointSuffix=core.windows.net";
+            string container2 = "dbacmestring0";
+            string walconn = @"DefaultEndpointsProtocol=https;AccountName=xdbwal;AccountKey=M0ighIVxdHliQ8w7xsJeIZv9tw22EZjRtgEs9begrPU3c50H7EsL7yCbqQK4xyPZ1cuw2e7eeh4eoArL7uTwNQ==;EndpointSuffix=core.windows.net";
+            string walcontainer = "acme";
+
+            //RaidDB raiddb = new RaidDB(conn1, container1, conn2, container2);
+            RaidDB raiddb = new RaidDB(conn1, container1, "s1", conn2, container2, "s2", walconn, walcontainer);
+            raiddb.open("dbacmestring0/acme", "acme/wal1");
+            int len = 10;
+            Tuple<byte[], byte[]>[] data = new Tuple<byte[], byte[]>[len];
+            for (int i = 0; i < len; i++)
+            {
+                data[i] = new Tuple<byte[], byte[]>(Encoding.ASCII.GetBytes("key1#" + i), Encoding.ASCII.GetBytes("value1#" + i));
+            }
+            raiddb.Add(data);
+            Tuple<byte[], byte[]>[] data2 = new Tuple<byte[], byte[]>[len];
+            for (int i = 0; i < len; i++)
+            {
+                data2[i] = new Tuple<byte[], byte[]>(Encoding.ASCII.GetBytes("key2#" + i), Encoding.ASCII.GetBytes("value2#" + i));
+            }
+            raiddb.Add(data2);
+            Tuple<byte[]>[] keys = new Tuple<byte[]>[] { new Tuple<byte[]>(Encoding.ASCII.GetBytes("key1#" + 5)), new Tuple<byte[]>(Encoding.ASCII.GetBytes("key2#" + 5)) };
+            Tuple<byte[]>[] values;
+
+            raiddb.Get(keys, out values);
+            for (int i = 0; i < values.Length; i++)
             {
                 Console.WriteLine("get value: " + Encoding.ASCII.GetString(values[i].Item1));
             }

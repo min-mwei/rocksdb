@@ -38,6 +38,31 @@ extern "C" SERVERDLL_API RaidDB* CreateRaidDBWithLocalShadow(const char* conn1,
 
 	return new RaidDB(store1, std::string(shadow1), store2, std::string(shadow2));
 }
+
+extern "C" SERVERDLL_API RaidDB* CreateRaidDBWithLocalShadowWithWAL(const char* conn1,
+	const char* container1,
+	const char* shadow1,
+	const char* conn2,
+	const char* container2,
+	const char* shadow2, 
+	const char* walconn,
+	const char* walcontainer) {
+	std::string dbconn1 = conn1;
+	std::string dbcontainer1 = container1;
+	std::string dbconn2 = conn2;
+	std::string dbcontainer2 = container2;
+	std::string dbconnwal = walconn;
+	std::string dbcontainerwal = walcontainer;
+	std::vector<std::pair<std::string, std::string>> store1;
+	std::vector<std::pair<std::string, std::string>> store2;
+	store1.push_back(std::make_pair(dbconn1, dbcontainer1));
+	store1.push_back(std::make_pair(dbconnwal, dbcontainerwal));
+	store2.push_back(std::make_pair(dbconn2, dbcontainer2));
+	store2.push_back(std::make_pair(dbconnwal, dbcontainerwal));
+
+	return new RaidDB(store1, std::string(shadow1), store2, std::string(shadow2));
+}
+
 extern "C" SERVERDLL_API void DeleteRaidDB(RaidDB* raiddb) { delete raiddb; }
 
 extern "C" SERVERDLL_API int Open(RaidDB* raiddb, const char* name) {
@@ -63,6 +88,31 @@ extern "C" SERVERDLL_API int Open(RaidDB* raiddb, const char* name) {
   options.create_if_missing = true;
   Status s = raiddb->OpenOrCreate(name, options);
   return s.code();
+}
+
+extern "C" SERVERDLL_API int OpenWithWAL(RaidDB* raiddb, const char* name, const char* waldir) {
+	Options options;
+	options.IncreaseParallelism();
+	options.compaction_style = kCompactionStyleUniversal;
+	options.num_levels = 4;
+	options.write_buffer_size = (uint64_t)(4.0 * 1024 * 1024 * 1024);
+	options.max_bytes_for_level_base = (uint64_t)(4.0 * 1024 * 1024 * 1024);
+	options.level0_file_num_compaction_trigger = 4;
+	options.level0_slowdown_writes_trigger = 50;
+	options.min_write_buffer_number_to_merge = 8;
+	options.max_write_buffer_number = 16;
+	options.target_file_size_base = (int)(1.5 * 1024 * 1024 * 1024);
+	options.max_subcompactions = 16;
+	options.max_background_compactions = 32;
+	options.max_background_flushes = 32;
+	options.writable_file_max_buffer_size = (int)(1.5 * 1024 * 1024 * 1024);
+	options.base_background_compactions = 8;
+	options.OptimizeUniversalStyleCompaction(
+		(uint64_t)(4.0 * 1024 * 1024 * 1024));
+	//options.wal_dir = waldir;
+	options.create_if_missing = true;
+	Status s = raiddb->OpenOrCreateWithWAL(name, options, waldir);
+	return s.code();
 }
 
 extern "C" SERVERDLL_API void Close(RaidDB* raiddb) { raiddb->Close(); }
@@ -110,7 +160,7 @@ extern "C" SERVERDLL_API int Get(RaidDB* raiddb, int size, const char** keyptrs,
   }
   *valuesptr = valuesbuf;
   *valuelensptr = valuelens;
-  return status[0].code();
+  return 0;
 }
 
 extern "C" SERVERDLL_API void FreeGet(char* valuesbuf, int* valuelensptr) {

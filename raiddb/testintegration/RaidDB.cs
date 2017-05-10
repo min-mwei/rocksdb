@@ -25,10 +25,16 @@ namespace testintegration
         public static extern IntPtr CreateRaidDBWithLocalShadow(string conn1, string container1, string shadow1, string conn2, string container2, string shadow2);
 
         [DllImport("raiddb.dll")]
+        public static extern IntPtr CreateRaidDBWithLocalShadowWithWAL(string conn1, string container1, string shadow1, string conn2, string container2, string shadow2, string walconn, string walcontainer);
+
+        [DllImport("raiddb.dll")]
         public static extern void DeleteRaidDB(IntPtr raiddb);
 
         [DllImport("raiddb.dll")]
         public static extern int Open(IntPtr raiddb, string dbname);
+
+        [DllImport("raiddb.dll")]
+        public static extern int OpenWithWAL(IntPtr raiddb, string dbname, string wal);
 
         [DllImport("raiddb.dll")]
         public static extern void Close(IntPtr raiddb);
@@ -74,6 +80,16 @@ namespace testintegration
             else 
                 raiddb_ = CreateRaidDBWithLocalShadow(conn1, container1, shadowpath1, conn2, container2, shadowpath2);
         }
+
+        public RaidDB(string conn1, string container1, string shadowpath1, string conn2, string container2, string shadowpath2, string walconn, string walcontainer)
+        {
+            if (string.IsNullOrEmpty(shadowpath1) || string.IsNullOrEmpty(shadowpath2) || string.IsNullOrEmpty(walconn) || string.IsNullOrEmpty(walcontainer))
+            {
+                throw new RaidDBException(-1);
+            }
+            raiddb_ = CreateRaidDBWithLocalShadowWithWAL(conn1, container1, shadowpath1, conn2, container2, shadowpath2, walconn, walcontainer);
+        }
+
         public void Dispose()
         {
             Close(raiddb_);
@@ -83,6 +99,11 @@ namespace testintegration
         public void open(string dbname)
         {
             Open(raiddb_, dbname);
+        }
+
+        public void open(string dbname, string wal)
+        {
+            OpenWithWAL(raiddb_, dbname, wal);
         }
 
         public void Flush()
